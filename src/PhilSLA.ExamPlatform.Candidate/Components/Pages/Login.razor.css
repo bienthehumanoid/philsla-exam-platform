@@ -59,7 +59,7 @@ h1 {
 
 .form-control {
     min-height: 2.875rem;
-    border-color: var(--border-subtle);
+    border-color: var(--border-control);
     border-radius: 0.375rem;
     color: var(--text-primary);
 }
@@ -125,6 +125,11 @@ h1 {
     border-color: var(--philsla-burgundy-hover);
     color: #ffffff;
     background: var(--philsla-burgundy-hover);
+}
+
+.sign-in-button:focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 .submission-message {
