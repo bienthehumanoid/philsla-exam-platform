@@ -1,0 +1,17 @@
+.login-shell {
+    display: grid;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: clamp(1rem, 4vw, 3rem);
+    overflow: auto;
+    place-items: center;
+    background:
+        radial-gradient(circle at 50% 42%, #ffffff 0, #f9fafb 38%, transparent 70%),
+        var(--surface-page);
+}
+
+@media (max-height: 560px) {
+    .login-shell {
+        align-items: start;
+    }
+}
