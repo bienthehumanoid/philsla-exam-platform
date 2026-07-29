@@ -64,6 +64,10 @@ h1 {
     color: var(--text-primary);
 }
 
+.form-control.invalid {
+    border-color: #b42318;
+}
+
 .form-control::placeholder {
     color: var(--text-muted);
     opacity: 1;
@@ -72,6 +76,11 @@ h1 {
 .form-control:focus {
     border-color: var(--focus-ring);
     box-shadow: 0 0 0 0.2rem rgb(43 108 176 / 18%);
+}
+
+.form-control:focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 .password-control {
