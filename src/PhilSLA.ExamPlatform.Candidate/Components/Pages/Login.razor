@@ -1,0 +1,98 @@
+@page "/"
+@layout LoginLayout
+
+<PageTitle>Candidate Login | PhilSLA Exam Platform</PageTitle>
+
+<main class="login-page">
+    <section class="login-card" aria-labelledby="login-title">
+        <header class="login-header">
+            <div class="wordmark" aria-label="PhilSLA">
+                <span class="wordmark-phil">Phil</span><span class="wordmark-sla">SLA</span>
+            </div>
+            <div>
+                <h1 id="login-title">Exam Portal</h1>
+                <p class="access-label">Authorized access only</p>
+            </div>
+        </header>
+
+    <EditForm Model="_model"
+              OnValidSubmit="HandleValidSubmit"
+              OnInvalidSubmit="HandleInvalidSubmit"
+              novalidate>
+        <DataAnnotationsValidator />
+
+        <div class="mb-3">
+            <label class="form-label" for="email">Email address</label>
+            <InputText id="email"
+                       class="form-control"
+                       type="email"
+                       inputmode="email"
+                       autocomplete="username"
+                       placeholder="candidate@example.com"
+                       @bind-Value="_model.Email" />
+            <div class="validation-region" aria-live="polite">
+                <ValidationMessage For="@(() => _model.Email)" />
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label" for="password">Password</label>
+            <div class="password-control">
+                <InputText id="password"
+                           class="form-control password-input"
+                           type="@PasswordInputType"
+                           autocomplete="current-password"
+                           @bind-Value="_model.Password" />
+                <button class="password-toggle"
+                        type="button"
+                        aria-label="@PasswordToggleLabel"
+                        aria-pressed="@_showPassword"
+                        @onclick="TogglePasswordVisibility">
+                    @(_showPassword ? "Hide" : "Show")
+                </button>
+            </div>
+            <div class="validation-region" aria-live="polite">
+                <ValidationMessage For="@(() => _model.Password)" />
+            </div>
+        </div>
+
+        <button class="btn sign-in-button" type="submit">Sign in</button>
+
+        @if (_submissionMessage is not null)
+        {
+            <p class="submission-message" role="status" aria-live="polite">
+                @_submissionMessage
+            </p>
+        }
+    </EditForm>
+    </section>
+</main>
+
+@code {
+    private const string AuthenticationUnavailableMessage =
+        "Online authentication is not available in this build.";
+
+    private readonly LoginFormModel _model = new();
+    private bool _showPassword;
+    private string? _submissionMessage;
+
+    private string PasswordInputType => _showPassword ? "text" : "password";
+    private string PasswordToggleLabel => _showPassword
+        ? "Hide password"
+        : "Show password";
+
+    private void TogglePasswordVisibility()
+    {
+        _showPassword = !_showPassword;
+    }
+
+    private void HandleValidSubmit()
+    {
+        _submissionMessage = AuthenticationUnavailableMessage;
+    }
+
+    private void HandleInvalidSubmit(EditContext _)
+    {
+        _submissionMessage = null;
+    }
+}
