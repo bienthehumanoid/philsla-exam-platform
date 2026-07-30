@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/PhilSLA.ExamPlatform.Candidate/PhilSLA.ExamPlatform.Candidate.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PhilSLA.ExamPlatform.Candidate.Tests/PhilSLA.ExamPlatform.Candidate.Tests.csproj" />
+  </Folder>
 </Solution>

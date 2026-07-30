@@ -58,6 +58,20 @@ dotnet run --project .\src\PhilSLA.ExamPlatform.Candidate\PhilSLA.ExamPlatform.C
 
 The application is currently unpackaged (`WindowsPackageType=None`).
 
+## Temporary MVP login
+
+Until cloud authentication is available, the Candidate application uses an
+isolated SQLite-backed presentation account:
+
+```text
+Email: candidate@example.test
+Password: DemoExam!2026
+```
+
+Only a salted password hash is stored in the local database. The login page depends
+on an authentication-service interface so the temporary provider can be replaced by
+the cloud API without changing the candidate exam workflow.
+
 ## Repository structure
 
 ```text
