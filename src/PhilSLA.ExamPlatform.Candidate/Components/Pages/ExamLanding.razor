@@ -1,0 +1,50 @@
+@page "/exam"
+@layout LoginLayout
+@inject CandidateSessionState CandidateSession
+@inject NavigationManager Navigation
+
+<PageTitle>Candidate Exam | PhilSLA Exam Platform</PageTitle>
+
+@if (CandidateSession.Candidate is not null)
+{
+    <main class="exam-landing" aria-labelledby="exam-landing-title">
+        <section class="exam-landing-card">
+            <p class="eyebrow">Candidate authenticated</p>
+            <h1 id="exam-landing-title">
+                Welcome, @CandidateSession.Candidate.FirstName
+                @CandidateSession.Candidate.LastName
+            </h1>
+            <p class="description">
+                Your examination workspace is ready for the next MVP phase.
+            </p>
+            <dl class="candidate-details">
+                <div>
+                    <dt>Email</dt>
+                    <dd>@CandidateSession.Candidate.Email</dd>
+                </div>
+            </dl>
+            <button class="logout-button"
+                    type="button"
+                    data-testid="logout"
+                    @onclick="LogOut">
+                Sign out
+            </button>
+        </section>
+    </main>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (!CandidateSession.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/", replace: true);
+        }
+    }
+
+    private void LogOut()
+    {
+        CandidateSession.SignOut();
+        Navigation.NavigateTo("/", replace: true);
+    }
+}

@@ -1,13 +1,15 @@
 :root {
     --philsla-navy: #0b2f55;
+    --philsla-gold: #f4b41a;
     --philsla-burgundy: #8f1238;
     --philsla-burgundy-hover: #76102f;
-    --surface-page: #f7f8fa;
+    --surface-page: #f8f9fb;
     --surface-card: #ffffff;
     --text-primary: #172033;
+    --text-strong: #101828;
     --text-muted: #667085;
-    --border-subtle: #d9e0e9;
-    --border-control: #8a94a6;
+    --border-subtle: #e1e6ed;
+    --border-control: #cbd3df;
     --focus-ring: #2b6cb0;
 }
 

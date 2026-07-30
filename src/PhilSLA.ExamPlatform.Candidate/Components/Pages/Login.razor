@@ -1,79 +1,130 @@
 @page "/"
 @layout LoginLayout
+@inject IAuthenticationService AuthenticationService
+@inject CandidateSessionState CandidateSession
+@inject NavigationManager Navigation
 
 <PageTitle>Candidate Login | PhilSLA Exam Platform</PageTitle>
 
 <main class="login-page">
     <section class="login-card" aria-labelledby="login-title">
+        <div class="secure-badge">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M12 3l7 3v5c0 4.6-2.9 8-7 10-4.1-2-7-5.4-7-10V6l7-3z" />
+                <path d="M9.5 12l1.7 1.7 3.6-3.7" />
+            </svg>
+            Secure
+        </div>
+
         <header class="login-header">
-            <div class="wordmark" aria-label="PhilSLA">
-                <span class="wordmark-phil">Phil</span><span class="wordmark-sla">SLA</span>
-            </div>
+            <img class="portal-mark"
+                 src="images/philsla-mark.svg"
+                 alt="" />
             <div>
                 <h1 id="login-title">Exam Portal</h1>
                 <p class="access-label">Authorized access only</p>
             </div>
         </header>
 
-    <EditForm Model="_model"
-              OnValidSubmit="HandleValidSubmit"
-              OnInvalidSubmit="HandleInvalidSubmit"
-              novalidate>
-        <DataAnnotationsValidator />
+        <div class="login-form">
+            <EditForm Model="_model"
+                      OnValidSubmit="HandleValidSubmit"
+                      OnInvalidSubmit="HandleInvalidSubmit"
+                      novalidate>
+                <DataAnnotationsValidator />
 
-        <div class="mb-3">
-            <label class="form-label" for="email">Email address</label>
-            <InputText id="email"
-                       class="form-control"
-                       type="email"
-                       inputmode="email"
-                       autocomplete="username"
-                       placeholder="candidate@example.com"
-                       @bind-Value="_model.Email" />
-            <div class="validation-region" aria-live="polite">
-                <ValidationMessage For="@(() => _model.Email)" />
-            </div>
-        </div>
+                <div class="form-group">
+                    <label class="form-label" for="email">Academic email</label>
+                    <div class="field-control">
+                        <svg class="field-icon" aria-hidden="true" viewBox="0 0 24 24">
+                            <rect x="3" y="5" width="18" height="14" rx="2" />
+                            <path d="M4 7l8 6 8-6" />
+                        </svg>
+                        <InputText id="email"
+                                   class="form-control"
+                                   type="email"
+                                   inputmode="email"
+                                   autocomplete="username"
+                                   placeholder="candidate@example.com"
+                                   @bind-Value="_model.Email" />
+                    </div>
+                    <div class="validation-region" aria-live="polite">
+                        <ValidationMessage For="@(() => _model.Email)" />
+                    </div>
+                </div>
 
-        <div class="mb-4">
-            <label class="form-label" for="password">Password</label>
-            <div class="password-control">
-                <InputText id="password"
-                           class="form-control password-input"
-                           type="@PasswordInputType"
-                           autocomplete="current-password"
-                           @bind-Value="_model.Password" />
-                <button class="password-toggle"
-                        type="button"
-                        aria-label="@PasswordToggleLabel"
-                        aria-pressed="@_showPassword"
-                        @onclick="TogglePasswordVisibility">
-                    @(_showPassword ? "Hide" : "Show")
+                <div class="form-group form-group-password">
+                    <label class="form-label" for="password">Password</label>
+                    <div class="field-control password-control">
+                        <svg class="field-icon" aria-hidden="true" viewBox="0 0 24 24">
+                            <rect x="4" y="10" width="16" height="11" rx="2" />
+                            <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                        </svg>
+                        <InputText id="password"
+                                   class="form-control password-input"
+                                   type="@PasswordInputType"
+                                   autocomplete="current-password"
+                                   @bind-Value="_model.Password" />
+                        <button class="password-toggle"
+                                type="button"
+                                aria-label="@PasswordToggleLabel"
+                                aria-pressed="@_showPassword"
+                                @onclick="TogglePasswordVisibility">
+                            @if (_showPassword)
+                            {
+                                <svg aria-hidden="true" viewBox="0 0 24 24">
+                                    <path d="M3 3l18 18" />
+                                    <path d="M10.6 10.7a2 2 0 0 0 2.7 2.7" />
+                                    <path d="M9.9 4.2A10.8 10.8 0 0 1 12 4c5.5 0 9 5 9 5a17 17 0 0 1-3.1 3.8M6.6 6.6C4.3 8 3 10 3 10s3.5 5 9 5c1 0 2-.2 2.9-.5" />
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg aria-hidden="true" viewBox="0 0 24 24">
+                                    <path d="M3 12s3.5-5 9-5 9 5 9 5-3.5 5-9 5-9-5-9-5Z" />
+                                    <circle cx="12" cy="12" r="2.5" />
+                                </svg>
+                            }
+                        </button>
+                    </div>
+                    <div class="validation-region" aria-live="polite">
+                        <ValidationMessage For="@(() => _model.Password)" />
+                    </div>
+                </div>
+
+                <button class="btn sign-in-button"
+                        type="submit"
+                        disabled="@_isSubmitting">
+                    @(_isSubmitting ? "Signing in..." : "Sign In")
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="M5 12h14M14 7l5 5-5 5" />
+                    </svg>
                 </button>
-            </div>
-            <div class="validation-region" aria-live="polite">
-                <ValidationMessage For="@(() => _model.Password)" />
-            </div>
+
+                @if (_submissionMessage is not null)
+                {
+                    <p class="submission-message" role="status" aria-live="polite">
+                        @_submissionMessage
+                    </p>
+                }
+            </EditForm>
         </div>
 
-        <button class="btn sign-in-button" type="submit">Sign in</button>
-
-        @if (_submissionMessage is not null)
-        {
-            <p class="submission-message" role="status" aria-live="polite">
-                @_submissionMessage
-            </p>
-        }
-    </EditForm>
+        <footer class="card-footer">
+            Protected academic assessment environment
+        </footer>
     </section>
 </main>
 
 @code {
+    private const string InvalidCredentialsMessage =
+        "Email or password is incorrect.";
     private const string AuthenticationUnavailableMessage =
-        "Online authentication is not available in this build.";
+        "Authentication is temporarily unavailable.";
 
     private readonly LoginFormModel _model = new();
     private bool _showPassword;
+    private bool _isSubmitting;
     private string? _submissionMessage;
 
     private string PasswordInputType => _showPassword ? "text" : "password";
@@ -86,9 +137,45 @@
         _showPassword = !_showPassword;
     }
 
-    private void HandleValidSubmit()
+    protected override void OnInitialized()
     {
-        _submissionMessage = AuthenticationUnavailableMessage;
+        if (CandidateSession.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/exam", replace: true);
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        _isSubmitting = true;
+        _submissionMessage = null;
+
+        try
+        {
+            var result = await AuthenticationService.AuthenticateAsync(
+                _model.Email,
+                _model.Password);
+
+            _model.Password = string.Empty;
+
+            if (!result.Succeeded || result.Candidate is null)
+            {
+                _submissionMessage = InvalidCredentialsMessage;
+                return;
+            }
+
+            CandidateSession.SignIn(result.Candidate);
+            Navigation.NavigateTo("/exam");
+        }
+        catch
+        {
+            _model.Password = string.Empty;
+            _submissionMessage = AuthenticationUnavailableMessage;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
     }
 
     private void HandleInvalidSubmit(EditContext _)
