@@ -1,0 +1,32 @@
+@page "/exam-instructions"
+@layout LoginLayout
+@inject CandidateSessionState CandidateSession
+@inject NavigationManager Navigation
+
+<PageTitle>Exam Instructions | PhilSLA Exam Platform</PageTitle>
+
+@if (CandidateSession.IsAuthenticated)
+{
+    <main class="instructions-card" aria-labelledby="instructions-title">
+        <p class="eyebrow">Authorization complete</p>
+        <h1 id="instructions-title">Exam instructions</h1>
+        <p>
+            Your device is ready. The exam instructions and start controls will be
+            implemented on this page in the next iteration.
+        </p>
+        <div class="ready-state" role="status">
+            <span aria-hidden="true">&#10003;</span>
+            Ready for the examination flow
+        </div>
+    </main>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (!CandidateSession.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/", replace: true);
+        }
+    }
+}

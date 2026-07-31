@@ -1,69 +1,594 @@
-.exam-landing {
-    width: min(100%, 42rem);
+.exam-readiness {
+    width: min(100%, 96rem);
+    min-width: 0;
+    padding-block: clamp(0.5rem, 2vw, 1.5rem);
 }
 
-.exam-landing-card {
-    padding: clamp(1.5rem, 4vw, 2.5rem);
+.candidate-summary,
+.candidate-greeting,
+.candidate-actions,
+.status-badges,
+.section-heading,
+.diagnostic-row,
+.progress-list li {
+    display: flex;
+}
+
+.candidate-summary {
+    margin-bottom: 2rem;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.summary-copy,
+.candidate-greeting > div,
+.candidate-actions,
+.readiness-layout,
+.waiting-card,
+.readiness-sidebar,
+.diagnostics-card,
+.progress-card {
+    min-width: 0;
+}
+
+.status-badges {
+    margin-bottom: 0.9rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.status-badge {
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.status-badge.accepted {
+    border: 1px solid #80e0c0;
+    color: #08795b;
+    background: #f0fff9;
+}
+
+.status-badge.scheduled {
+    color: #fff;
+    background: #161a20;
+}
+
+.candidate-greeting {
+    align-items: center;
+    gap: 1rem;
+}
+
+.candidate-avatar {
+    display: grid;
+    width: 4.25rem;
+    height: 4.25rem;
+    flex: 0 0 auto;
+    border: 3px solid #fff;
+    border-radius: 0.7rem;
+    place-items: center;
+    color: #fff;
+    background: linear-gradient(145deg, var(--philsla-navy), var(--philsla-burgundy));
+    box-shadow: 0 0.5rem 1.2rem rgb(15 23 42 / 16%);
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.candidate-greeting h1 {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: clamp(1.7rem, 3vw, 2.45rem);
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+}
+
+.candidate-greeting p {
+    margin: 0.35rem 0 0;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+}
+
+.candidate-actions {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.candidate-id {
+    min-width: min(12rem, 100%);
+    padding: 0.75rem 1.2rem;
     border: 1px solid var(--border-subtle);
-    border-radius: 0.75rem;
+    border-radius: 999px;
+    text-align: center;
     background: var(--surface-card);
-    box-shadow: 0 1rem 2.5rem rgb(15 23 42 / 8%);
+    box-shadow: 0 0.35rem 0.8rem rgb(15 23 42 / 7%);
 }
 
-.eyebrow {
-    margin: 0 0 0.5rem;
-    color: var(--philsla-burgundy);
-    font-size: 0.8125rem;
-    font-weight: 700;
+.candidate-id span,
+.candidate-id strong {
+    display: block;
+}
+
+.candidate-id span {
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
-h1 {
-    margin: 0;
-    color: var(--text-strong);
-    font-size: clamp(1.75rem, 4vw, 2.25rem);
-    line-height: 1.2;
-}
-
-.description {
-    margin: 1rem 0 1.5rem;
-    color: var(--text-muted);
-}
-
-.candidate-details {
-    margin: 0 0 2rem;
-}
-
-.candidate-details div {
-    padding: 1rem;
-    border-radius: 0.5rem;
-    background: var(--surface-page);
-}
-
-.candidate-details dt {
-    color: var(--text-muted);
-    font-size: 0.8125rem;
-    font-weight: 700;
-    text-transform: uppercase;
-}
-
-.candidate-details dd {
-    margin: 0.25rem 0 0;
+.candidate-id strong {
+    margin-top: 0.15rem;
+    font-size: 0.8rem;
     overflow-wrap: anywhere;
 }
 
-.logout-button {
+.logout-button,
+.diagnostics-button {
     min-height: 2.75rem;
-    padding: 0.625rem 1rem;
-    border: 1px solid var(--border-control);
     border-radius: 0.5rem;
-    color: var(--text-primary);
-    background: var(--surface-card);
     cursor: pointer;
 }
 
+.logout-button {
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--border-control);
+    color: var(--text-primary);
+    background: #fff;
+}
+
 .logout-button:hover {
-    border-color: var(--philsla-navy);
-    color: var(--philsla-navy);
+    border-color: var(--philsla-burgundy);
+    color: var(--philsla-burgundy);
+}
+
+.readiness-layout {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.waiting-card,
+.progress-card {
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.75rem;
+    background: #fff;
+    box-shadow: 0 0.25rem 0.8rem rgb(15 23 42 / 4%);
+}
+
+.waiting-card {
+    display: flex;
+    min-height: 33rem;
+    padding: clamp(2rem, 6vw, 4rem);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.clock-mark {
+    display: grid;
+    width: 4.5rem;
+    height: 4.5rem;
+    margin-bottom: 1.5rem;
+    border-radius: 1rem;
+    place-items: center;
+    color: #e17600;
+    background: #fff3c7;
+    box-shadow: 0 0.8rem 1.6rem rgb(244 180 26 / 22%);
+}
+
+.clock-mark svg,
+.section-heading svg,
+.diagnostic-row > svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.clock-mark svg {
+    width: 2.4rem;
+    height: 2.4rem;
+}
+
+.waiting-card h2 {
+    max-width: 100%;
+    margin: 0;
+    color: var(--text-strong);
+    font-size: clamp(1.4rem, 2.6vw, 2rem);
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+
+.waiting-description {
+    max-width: 32rem;
+    margin: 0.75rem 0 2rem;
+    color: var(--text-muted);
+}
+
+.exam-details {
+    display: grid;
+    width: min(100%, 37rem);
+    margin: 0 0 2rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.exam-details div {
+    min-height: 6.6rem;
+    padding: 1rem 0.75rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.65rem;
+    background: #fcfcfd;
+}
+
+.exam-details dt {
+    color: var(--philsla-burgundy);
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.exam-details dd {
+    margin: 0.4rem 0 0;
+    overflow-wrap: anywhere;
+    color: var(--text-strong);
+    font-size: 0.86rem;
+    font-weight: 750;
+    line-height: 1.25;
+}
+
+.authorization-state {
+    display: inline-flex;
+    min-height: 2.75rem;
+    padding: 0.65rem 1rem;
+    border: 1px solid #f1d990;
+    border-radius: 0.65rem;
+    align-items: center;
+    gap: 0.6rem;
+    color: #a54b00;
+    background: #fff9e8;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.authorization-state span {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--philsla-gold);
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.authorization-state.blocked {
+    border-color: #f4b8b3;
+    color: #9f1d16;
+    background: #fff1f0;
+}
+
+.authorization-state.blocked span {
+    background: #d92d20;
+    animation: none;
+}
+
+.readiness-sidebar {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.diagnostics-card {
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    color: #fff;
+    background: #006448;
+    box-shadow: 0 0.75rem 1.4rem rgb(0 100 72 / 18%);
+}
+
+.section-heading {
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.section-heading h2 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.section-heading svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--philsla-gold);
+}
+
+.section-heading h2,
+.progress-card h2 {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.diagnostic-list {
+    margin-block: 1.25rem;
+}
+
+.diagnostic-row {
+    display: grid;
+    min-height: 3.6rem;
+    grid-template-columns: 1.15rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.diagnostic-row > svg {
+    width: 1.15rem;
+    height: 1.15rem;
+    flex: 0 0 auto;
+    color: #5de2bb;
+}
+
+.diagnostic-row > div {
+    min-width: 0;
+    flex: 1;
+}
+
+.diagnostic-row strong,
+.diagnostic-row div span {
+    display: block;
+}
+
+.diagnostic-row strong {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+}
+
+.diagnostic-row div span {
+    color: #b7e5d8;
+    font-size: 0.7rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.check-status {
+    color: #62efc4;
+    font-size: 0.65rem;
+    font-weight: 850;
+    text-align: right;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+
+.check-status.warning,
+.check-status.checking {
+    color: #ffd65a;
+}
+
+.check-status.failed {
+    color: #ffaba4;
+}
+
+.diagnostics-button {
+    width: 100%;
+    padding: 0.65rem 1rem;
+    border: 1px solid rgb(255 255 255 / 14%);
+    color: #fff;
+    background: rgb(255 255 255 / 10%);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1.35;
+    text-align: center;
+    text-transform: uppercase;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.diagnostics-button:hover:not(:disabled) {
+    background: rgb(255 255 255 / 17%);
+}
+
+.diagnostics-button:disabled {
+    cursor: wait;
+    opacity: 0.72;
+}
+
+.progress-card {
+    padding: 1.75rem;
+}
+
+.progress-card h2 {
+    padding-left: 0.85rem;
+    border-left: 0.25rem solid var(--philsla-burgundy);
+    color: var(--text-muted);
+}
+
+.progress-list {
+    margin: 1.5rem 0 0;
+    padding: 0;
+    flex-direction: column;
+    list-style: none;
+}
+
+.progress-list li {
+    position: relative;
+    min-height: 4rem;
+    align-items: flex-start;
+    gap: 1rem;
+    color: #98a2b3;
+}
+
+.progress-list li:not(:last-child)::after {
+    position: absolute;
+    top: 2rem;
+    bottom: 0;
+    left: 1rem;
+    width: 1px;
+    background: var(--border-subtle);
+    content: "";
+}
+
+.progress-list li > span {
+    display: grid;
+    position: relative;
+    z-index: 1;
+    width: 2rem;
+    height: 2rem;
+    flex: 0 0 auto;
+    border: 2px solid var(--border-subtle);
+    border-radius: 50%;
+    place-items: center;
+    background: #fff;
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+.progress-list strong,
+.progress-list small {
+    display: block;
+}
+
+.progress-list strong {
+    color: inherit;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+
+.progress-list small {
+    margin-top: 0.12rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+
+.progress-list li > div {
+    min-width: 0;
+}
+
+.progress-list li.complete {
+    color: #08795b;
+}
+
+.progress-list li.complete > span {
+    border-color: #08795b;
+    color: #fff;
+    background: #08795b;
+}
+
+.progress-list li.current {
+    color: var(--philsla-burgundy);
+}
+
+.progress-list li.current > span {
+    border-color: var(--philsla-burgundy);
+}
+
+.progress-list li.attention {
+    color: #b54708;
+}
+
+.progress-list li.attention > span {
+    border-color: #f79009;
+    color: #b54708;
+    background: #fffaeb;
+}
+
+@keyframes pulse {
+    50% {
+        opacity: 0.35;
+    }
+}
+
+@media (max-width: 70rem) {
+    .readiness-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .readiness-sidebar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 48rem) {
+    .exam-readiness {
+        width: 100%;
+    }
+
+    .candidate-summary {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .candidate-actions {
+        width: 100%;
+    }
+
+    .candidate-id {
+        flex: 1;
+    }
+
+    .waiting-card {
+        min-height: 0;
+        padding: 2rem 1rem;
+    }
+
+    .exam-details {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .readiness-sidebar {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 34rem) {
+    .candidate-greeting {
+        align-items: flex-start;
+    }
+
+    .candidate-avatar {
+        width: 3.3rem;
+        height: 3.3rem;
+    }
+
+    .candidate-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .exam-details {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .diagnostic-row {
+        padding-block: 0.45rem;
+        grid-template-columns: 1.15rem minmax(0, 1fr);
+        align-items: start;
+    }
+
+    .check-status {
+        grid-column: 2;
+        text-align: left;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .authorization-state span {
+        animation: none;
+    }
 }
