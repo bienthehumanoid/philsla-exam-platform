@@ -83,6 +83,18 @@
                     <span aria-hidden="true"></span>
                     @AuthorizationMessage
                 </div>
+
+                <div class="readiness-action">
+                    <button class="proceed-button"
+                            type="button"
+                            data-testid="proceed-to-setup"
+                            disabled="@(!CanProceed)"
+                            @onclick="ProceedToSetup">
+                        Proceed to secure setup
+                        <span aria-hidden="true">&rarr;</span>
+                    </button>
+                    <p>@ProceedHelpText</p>
+                </div>
             </section>
 
             <aside class="readiness-sidebar" aria-label="Exam readiness status">
@@ -200,6 +212,7 @@
     private bool _isChecking;
 
     private bool IsBusy => _isChecking;
+    private bool CanProceed => !_isChecking && _readiness?.CanStartExam == true;
 
     private string CandidateInitials
     {
@@ -233,6 +246,14 @@
 
     private string AuthorizationClass =>
         _readiness is { CanStartExam: false } ? "blocked" : string.Empty;
+
+    private string ProceedHelpText => (_isChecking, _readiness?.CanStartExam) switch
+    {
+        (true, _) => "Wait for diagnostics to finish before proceeding.",
+        (_, true) => "Your device is ready for the required pre-exam steps.",
+        (_, false) => "Resolve the failed checks, then run diagnostics again.",
+        _ => "Complete device diagnostics to continue."
+    };
 
     private string DeviceStepClass => (_isChecking, _readiness?.CanStartExam) switch
     {
@@ -333,6 +354,14 @@
         _lifetimeCancellation.Cancel();
         CandidateSession.SignOut();
         Navigation.NavigateTo("/", replace: true);
+    }
+
+    private void ProceedToSetup()
+    {
+        if (CanProceed)
+        {
+            Navigation.NavigateTo("/exam-instructions");
+        }
     }
 
     public void Dispose()

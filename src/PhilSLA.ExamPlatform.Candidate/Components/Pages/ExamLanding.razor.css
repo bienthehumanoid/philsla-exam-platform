@@ -283,6 +283,60 @@
     animation: none;
 }
 
+.readiness-action {
+    width: min(100%, 25rem);
+    margin-top: 1.5rem;
+}
+
+.proceed-button {
+    display: inline-flex;
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid var(--philsla-burgundy);
+    border-radius: 0.6rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    color: #fff;
+    background: var(--philsla-burgundy);
+    box-shadow: 0 0.45rem 1rem rgb(143 18 56 / 18%);
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition:
+        background-color 180ms ease,
+        border-color 180ms ease,
+        box-shadow 180ms ease;
+}
+
+.proceed-button:hover:not(:disabled) {
+    border-color: var(--philsla-burgundy-hover);
+    background: var(--philsla-burgundy-hover);
+    box-shadow: 0 0.6rem 1.15rem rgb(143 18 56 / 24%);
+}
+
+.proceed-button:active:not(:disabled) {
+    box-shadow: 0 0.25rem 0.55rem rgb(143 18 56 / 20%);
+}
+
+.proceed-button:disabled {
+    border-color: #d0d5dd;
+    color: #667085;
+    background: #eaecf0;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.readiness-action p {
+    margin: 0.65rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
 .readiness-sidebar {
     display: grid;
     gap: 1.5rem;
@@ -588,7 +642,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .authorization-state span {
+    .authorization-state span,
+    .proceed-button {
         animation: none;
+        transition: none;
     }
 }
