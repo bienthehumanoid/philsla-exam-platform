@@ -39,6 +39,22 @@ public sealed class ExamLandingTests
     }
 
     [TestMethod]
+    public void PassingDiagnostics_EnableProceedAndNavigateToSetup()
+    {
+        using var context = CreateContext();
+        var navigation = context.Services.GetRequiredService<NavigationManager>();
+        navigation.NavigateTo("/exam");
+        var component = context.Render<ExamLandingComponent>();
+        var proceed = component.Find("[data-testid='proceed-to-setup']");
+
+        Assert.IsFalse(proceed.HasAttribute("disabled"));
+
+        proceed.Click();
+
+        StringAssert.EndsWith(navigation.Uri, "/exam-instructions");
+    }
+
+    [TestMethod]
     public void FailedDiagnostics_BlockAuthorizationAndExplainFailure()
     {
         var authorization = new ImmediateAuthorizationService();
@@ -64,6 +80,10 @@ public sealed class ExamLandingTests
         Assert.HasCount(
             1,
             component.FindAll("[data-testid='run-diagnostics']"));
+        Assert.IsTrue(
+            component
+                .Find("[data-testid='proceed-to-setup']")
+                .HasAttribute("disabled"));
     }
 
     [TestMethod]

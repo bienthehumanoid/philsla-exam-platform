@@ -3,30 +3,169 @@
 @inject CandidateSessionState CandidateSession
 @inject NavigationManager Navigation
 
-<PageTitle>Exam Instructions | PhilSLA Exam Platform</PageTitle>
+<PageTitle>Terms of Use | PhilSLA Exam Platform</PageTitle>
 
 @if (CandidateSession.IsAuthenticated)
 {
-    <main class="instructions-card" aria-labelledby="instructions-title">
-        <p class="eyebrow">Authorization complete</p>
-        <h1 id="instructions-title">Exam instructions</h1>
-        <p>
-            Your device is ready. The exam instructions and start controls will be
-            implemented on this page in the next iteration.
-        </p>
-        <div class="ready-state" role="status">
-            <span aria-hidden="true">&#10003;</span>
-            Ready for the examination flow
-        </div>
+    <main class="setup-card" aria-labelledby="setup-title">
+        <aside class="setup-sidebar" aria-label="Secure exam setup progress">
+            <div class="setup-identity">
+                <span class="identity-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 3 4.5 6v5.5c0 4.6 3.1 7.8 7.5 9.5 4.4-1.7 7.5-4.9 7.5-9.5V6L12 3Z" />
+                        <path d="m9 12 2 2 4-4" />
+                    </svg>
+                </span>
+                <div>
+                    <strong>System integrity</strong>
+                    <span>Secure exam setup</span>
+                </div>
+            </div>
+
+            <div class="engine-status">
+                <span>Proctoring engine</span>
+                <strong>
+                    <i aria-hidden="true"></i>
+                    Online secure shell
+                </strong>
+            </div>
+
+            <nav aria-label="Setup steps">
+                <ol class="setup-steps">
+                    @foreach (var step in SetupSteps)
+                    {
+                        <li class="@(step.Number == 1 ? "active" : string.Empty)"
+                            aria-current="@(step.Number == 1 ? "step" : null)">
+                            <span class="step-number" aria-hidden="true">@step.Number</span>
+                            <span>@step.Label</span>
+                        </li>
+                    }
+                </ol>
+            </nav>
+
+            <div class="security-status">
+                <span><i aria-hidden="true"></i> Proctor feed active</span>
+                <span>
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <rect x="5" y="10" width="14" height="10" rx="2" />
+                        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                    </svg>
+                    Shell environment
+                </span>
+            </div>
+        </aside>
+
+        <section class="setup-content">
+            <header class="setup-heading">
+                <p>Step 1 of 7</p>
+                <h1 id="setup-title">Terms of use</h1>
+                <span>Academic integrity and proctoring terms</span>
+            </header>
+
+            <p class="setup-introduction">
+                Review the secure assessment agreement, device permissions, and
+                academic proctoring conditions before starting the exam.
+            </p>
+
+            <div class="terms-panel"
+                 role="region"
+                 aria-label="PhilSLA secure assessment environment agreement"
+                 tabindex="0">
+                <h2>PhilSLA Secure Assessment Environment Agreement</h2>
+                <ol>
+                    <li>
+                        By proceeding, you authorize this application to use the
+                        approved secure exam environment and to monitor application
+                        activity for the duration of the assessment.
+                    </li>
+                    <li>
+                        Camera and system-integrity records may be collected and
+                        transmitted to authorized PhilSLA examination personnel
+                        under the applicable privacy and retention policies.
+                    </li>
+                    <li>
+                        You must remain visible to the camera, keep the examination
+                        application open, and follow all instructions issued by the
+                        assigned proctor.
+                    </li>
+                    <li>
+                        Attempts to access unauthorized materials, applications,
+                        devices, communication tools, or assistance may be recorded
+                        and referred for academic-integrity review.
+                    </li>
+                    <li>
+                        Report technical issues immediately. Do not close or restart
+                        the application unless instructed by the proctor.
+                    </li>
+                </ol>
+                <p>
+                    Selecting the agreement below confirms that you understand these
+                    conditions and consent to continue with the remaining setup checks.
+                </p>
+            </div>
+
+            <label class="agreement-control" for="terms-agreement">
+                <input id="terms-agreement"
+                       data-testid="terms-agreement"
+                       type="checkbox"
+                       @bind="_hasAgreed" />
+                <span>
+                    I agree to the PhilSLA terms of use, applicable privacy policies,
+                    and proctoring requirements.
+                </span>
+            </label>
+
+            <footer class="setup-actions">
+                <p id="terms-status" role="status" aria-live="polite">
+                    @StatusMessage
+                </p>
+                <button type="button"
+                        data-testid="agree-and-continue"
+                        disabled="@(!_hasAgreed || _termsAccepted)"
+                        @onclick="AcceptTerms">
+                    @(_termsAccepted ? "Terms accepted" : "Agree and continue")
+                    @if (!_termsAccepted)
+                    {
+                        <span aria-hidden="true">&rarr;</span>
+                    }
+                </button>
+            </footer>
+        </section>
     </main>
 }
 
 @code {
+    private static readonly (int Number, string Label)[] SetupSteps =
+    [
+        (1, "Terms of use"),
+        (2, "Webcam check"),
+        (3, "Student photo"),
+        (4, "Show ID"),
+        (5, "Environment check"),
+        (6, "Additional instructions"),
+        (7, "Begin exam")
+    ];
+
+    private bool _hasAgreed;
+    private bool _termsAccepted;
+
+    private string StatusMessage => _termsAccepted
+        ? "Terms accepted. The webcam check will be added in the next iteration."
+        : "You must accept the terms before continuing.";
+
     protected override void OnInitialized()
     {
         if (!CandidateSession.IsAuthenticated)
         {
             Navigation.NavigateTo("/", replace: true);
+        }
+    }
+
+    private void AcceptTerms()
+    {
+        if (_hasAgreed)
+        {
+            _termsAccepted = true;
         }
     }
 }
