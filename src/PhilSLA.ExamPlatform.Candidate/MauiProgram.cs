@@ -1,7 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
 
+using Microsoft.Maui.Networking;
 using PhilSLA.ExamPlatform.Candidate.Authentication;
+using PhilSLA.ExamPlatform.Candidate.Examination;
 using PhilSLA.ExamPlatform.Candidate.Persistence;
+using PhilSLA.ExamPlatform.Candidate.Readiness;
 
 namespace PhilSLA.ExamPlatform.Candidate;
 
@@ -31,6 +34,16 @@ public static class MauiProgram
 		builder.Services.AddSingleton(candidateRepository);
 		builder.Services.AddSingleton<IAuthenticationService, TemporaryAuthenticationService>();
 		builder.Services.AddSingleton<CandidateSessionState>();
+		builder.Services.AddSingleton<IConnectivity>(Connectivity.Current);
+		builder.Services.AddSingleton<IExamAssignmentProvider, SeededExamAssignmentProvider>();
+		builder.Services.AddSingleton<IExamAuthorizationService>(
+			new TimedExamAuthorizationService(TimeSpan.FromSeconds(5)));
+
+#if WINDOWS
+		builder.Services.AddSingleton<IDeviceReadinessService, WindowsDeviceReadinessService>();
+#else
+		builder.Services.AddSingleton<IDeviceReadinessService, UnsupportedDeviceReadinessService>();
+#endif
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();

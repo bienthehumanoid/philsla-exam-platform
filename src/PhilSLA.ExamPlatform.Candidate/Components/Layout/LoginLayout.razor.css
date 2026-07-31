@@ -4,6 +4,7 @@
     min-height: 100vh;
     min-height: 100dvh;
     overflow: auto;
+    overflow-x: hidden;
     background: var(--surface-page);
 }
 
@@ -19,9 +20,11 @@
 
 .site-header-inner {
     display: flex;
-    width: min(100% - 2rem, 59rem);
+    width: min(100%, 61rem);
     min-height: 4rem;
     margin-inline: auto;
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
     align-items: center;
 }
 
@@ -46,6 +49,7 @@
 }
 
 .brand-mark {
+    max-width: 100%;
     width: 2rem;
     height: 2rem;
 }
@@ -85,27 +89,30 @@
 .login-content {
     display: grid;
     flex: 1 0 auto;
+    min-width: 0;
     min-height: calc(100vh - 4rem);
     min-height: calc(100dvh - 4rem);
-    padding: clamp(2rem, 7vh, 5rem) 1rem;
+    padding-top: max(clamp(2rem, 7dvh, 5rem), env(safe-area-inset-top));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(clamp(2rem, 7dvh, 5rem), env(safe-area-inset-bottom));
+    padding-left: max(1rem, env(safe-area-inset-left));
     place-items: center;
     background:
         radial-gradient(circle at 50% 45%, #ffffff 0, rgb(255 255 255 / 72%) 27%, transparent 62%),
         var(--surface-page);
 }
 
-@media (max-height: 560px) {
+@media (max-height: 42rem) {
     .login-content {
         align-items: start;
+        padding-top: max(1rem, env(safe-area-inset-top));
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
     }
 }
 
 @media (max-width: 420px) {
-    .site-header-inner {
-        width: min(100% - 1rem, 59rem);
-    }
-
     .login-content {
-        padding: 1.5rem 0.75rem;
+        padding-right: max(0.75rem, env(safe-area-inset-right));
+        padding-left: max(0.75rem, env(safe-area-inset-left));
     }
 }
