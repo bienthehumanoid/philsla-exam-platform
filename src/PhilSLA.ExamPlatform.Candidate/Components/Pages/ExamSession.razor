@@ -1,0 +1,483 @@
+@page "/exam-session"
+@layout ExamLayout
+@implements IDisposable
+@inject CandidateSessionState CandidateSession
+@inject ExamSessionService SessionService
+@inject NavigationManager Navigation
+@inject IJSRuntime JavaScript
+
+<PageTitle>Exam in Progress | PhilSLA Exam Platform</PageTitle>
+
+<NavigationLock OnBeforeInternalNavigation="PreventNavigation" />
+
+@if (_isLoading)
+{
+    <main class="session-state-card" aria-labelledby="loading-title">
+        <div class="state-spinner" aria-hidden="true"></div>
+        <h1 id="loading-title">Restoring exam session</h1>
+        <p>Loading the latest locally saved examination state.</p>
+    </main>
+}
+else if (_loadError is not null)
+{
+    <main class="session-state-card error-state" aria-labelledby="error-title">
+        <div class="state-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 8v5M12 17h.01" />
+                <circle cx="12" cy="12" r="9" />
+            </svg>
+        </div>
+        <h1 id="error-title">Exam recovery needs attention</h1>
+        <p role="alert">@_loadError</p>
+        <button type="button" @onclick="LoadSessionAsync">Retry recovery</button>
+    </main>
+}
+else if (_snapshot is { Attempt.Status: ExamAttemptStatus.Active } snapshot)
+{
+    <main class="exam-frame">
+        <ExamHeader Snapshot="snapshot"
+                    IsBusy="@_isBusy"
+                    FinishRequested="OpenFinishDialogAsync" />
+        <ExamStructureRail Snapshot="snapshot"
+                           CandidateName="@CandidateName" />
+        <QuestionWorkspace Snapshot="snapshot"
+                           IsBusy="@_isBusy"
+                           SaveStatus="@_saveStatus"
+                           HasSaveError="@_hasSaveError"
+                           AnswerSelected="SaveAnswerAsync"
+                           FlagChanged="SetFlagAsync"
+                           QuestionSelected="NavigateToQuestionAsync"
+                           ReviewRequested="OpenFinishDialogAsync" />
+        <QuestionPalette Snapshot="snapshot"
+                         IsBusy="@_isBusy"
+                         QuestionSelected="NavigateToQuestionAsync" />
+    </main>
+
+    @if (_showFinishDialog)
+    {
+        <FinishBlockDialog Snapshot="snapshot"
+                           IsBusy="@_isBusy"
+                           Cancel="CloseFinishDialog"
+                           Confirm="FinishBlockAsync" />
+    }
+}
+else if (_snapshot is
+         { Attempt.Status: ExamAttemptStatus.AwaitingNextBlock } waitingSnapshot)
+{
+    <main class="session-state-card" aria-labelledby="block-complete-title">
+        <div class="state-icon success" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9" />
+                <path d="m8 12 2.5 2.5L16 9" />
+            </svg>
+        </div>
+        <p class="state-eyebrow">
+            Block @waitingSnapshot.Attempt.ActiveBlockNumber of
+            @waitingSnapshot.Definition.Blocks.Count complete
+        </p>
+        <h1 id="block-complete-title">
+            @waitingSnapshot.ActiveBlock.Title submitted
+        </h1>
+        <p>
+            Your answers are saved locally. The next block timer will not
+            start until you continue.
+        </p>
+        <div class="state-summary">
+            <span>
+                <strong>@waitingSnapshot.AnsweredCount</strong>
+                Answered
+            </span>
+            <span>
+                <strong>@(waitingSnapshot.ActiveBlock.Questions.Count -
+                    waitingSnapshot.AnsweredCount)</strong>
+                Unanswered
+            </span>
+        </div>
+        <button type="button"
+                data-testid="start-next-block"
+                disabled="@_isBusy"
+                @onclick="StartNextBlockAsync">
+            @(_isBusy ? "Preparing next block" : "Start next block")
+            <span aria-hidden="true">&rarr;</span>
+        </button>
+    </main>
+}
+else if (_snapshot is { Attempt.Status: ExamAttemptStatus.Completed } completed)
+{
+    <main class="session-state-card" aria-labelledby="exam-complete-title">
+        <div class="state-icon success" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9" />
+                <path d="m8 12 2.5 2.5L16 9" />
+            </svg>
+        </div>
+        <p class="state-eyebrow">All blocks submitted</p>
+        <h1 id="exam-complete-title">Examination complete</h1>
+        <p>
+            Your responses are saved locally. Remain at this workstation
+            until the proctor gives further instructions.
+        </p>
+        <div class="state-summary">
+            <span>
+                <strong>@completed.Definition.Blocks.Count</strong>
+                Blocks completed
+            </span>
+            <span>
+                <strong>@completed.Attempt.Answers.Count</strong>
+                Answers saved
+            </span>
+        </div>
+    </main>
+}
+
+@code {
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private ExamSessionSnapshot? _snapshot;
+    private bool _isLoading = true;
+    private bool _isBusy;
+    private bool _showFinishDialog;
+    private bool _hasSaveError;
+    private int _timerVersion;
+    private string _saveStatus = "No answer selected yet.";
+    private string? _loadError;
+
+    private string CandidateName
+    {
+        get
+        {
+            var candidate = CandidateSession.Candidate;
+            return candidate is null
+                ? string.Empty
+                : string.Join(
+                    " ",
+                    new[]
+                    {
+                        candidate.FirstName,
+                        candidate.MiddleName,
+                        candidate.LastName,
+                        candidate.Suffix
+                    }.Where(part => !string.IsNullOrWhiteSpace(part)));
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!CandidateSession.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/", replace: true);
+            return;
+        }
+
+        await LoadSessionAsync();
+    }
+
+    private async Task LoadSessionAsync()
+    {
+        var candidate = CandidateSession.Candidate;
+        if (candidate is null)
+        {
+            Navigation.NavigateTo("/", replace: true);
+            return;
+        }
+
+        _isLoading = true;
+        _loadError = null;
+
+        try
+        {
+            _snapshot = await SessionService.LoadAsync(
+                candidate.Id,
+                _lifetimeCancellation.Token);
+            if (_snapshot is null)
+            {
+                Navigation.NavigateTo("/exam-authorization", replace: true);
+                return;
+            }
+
+            UpdateSaveStatus();
+            StartTimer();
+        }
+        catch (OperationCanceledException)
+            when (_lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception)
+        {
+            _loadError =
+                "The locally saved exam could not be restored. " +
+                "Retry once, then notify the proctor if the problem continues.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveAnswerAsync(Guid choiceId)
+    {
+        if (_isBusy || _snapshot is null)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        _hasSaveError = false;
+        _saveStatus = "Saving answer locally...";
+
+        try
+        {
+            _snapshot = await SessionService.SelectAnswerAsync(
+                _snapshot.CurrentQuestion.Id,
+                choiceId,
+                _lifetimeCancellation.Token);
+            _saveStatus = "Answer saved locally.";
+        }
+        catch (OperationCanceledException)
+            when (_lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception)
+        {
+            _hasSaveError = true;
+            _saveStatus =
+                "Answer was not saved. Select the answer again or notify the proctor.";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task SetFlagAsync(bool isFlagged)
+    {
+        if (_isBusy || _snapshot is null)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        try
+        {
+            _snapshot = await SessionService.SetQuestionFlagAsync(
+                _snapshot.CurrentQuestion.Id,
+                isFlagged,
+                _lifetimeCancellation.Token);
+            _saveStatus = isFlagged
+                ? "Question flagged for review."
+                : "Question flag removed.";
+            _hasSaveError = false;
+        }
+        catch (OperationCanceledException)
+            when (_lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception)
+        {
+            _hasSaveError = true;
+            _saveStatus =
+                "The question flag could not be saved. Please try again.";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task NavigateToQuestionAsync(int questionNumber)
+    {
+        if (_isBusy || _snapshot is null ||
+            questionNumber == _snapshot.Attempt.CurrentQuestionNumber)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        try
+        {
+            _snapshot = await SessionService.NavigateAsync(
+                questionNumber,
+                _lifetimeCancellation.Token);
+            UpdateSaveStatus();
+            await JavaScript.InvokeVoidAsync(
+                "philslaExam.focusElement",
+                "exam-question");
+        }
+        catch (OperationCanceledException)
+            when (_lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception)
+        {
+            _hasSaveError = true;
+            _saveStatus =
+                "Question navigation could not be saved. Please try again.";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task OpenFinishDialogAsync()
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        _showFinishDialog = true;
+        await InvokeAsync(StateHasChanged);
+        await JavaScript.InvokeVoidAsync(
+            "philslaExam.focusElement",
+            "finish-dialog-title");
+    }
+
+    private async Task CloseFinishDialog()
+    {
+        if (!_isBusy)
+        {
+            _showFinishDialog = false;
+            await InvokeAsync(StateHasChanged);
+            await JavaScript.InvokeVoidAsync(
+                "philslaExam.focusElement",
+                "finish-block-button");
+        }
+    }
+
+    private async Task FinishBlockAsync()
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        try
+        {
+            _snapshot = await SessionService.SubmitActiveBlockAsync(
+                BlockSubmissionReason.Candidate,
+                _lifetimeCancellation.Token);
+            _showFinishDialog = false;
+        }
+        catch (OperationCanceledException)
+            when (_lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception)
+        {
+            _hasSaveError = true;
+            _saveStatus =
+                "The block was not submitted. Return to the questions and notify the proctor.";
+            _showFinishDialog = false;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task StartNextBlockAsync()
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        try
+        {
+            _snapshot = await SessionService.StartNextBlockAsync(
+                _lifetimeCancellation.Token);
+            UpdateSaveStatus();
+            StartTimer();
+        }
+        catch (OperationCanceledException)
+            when (_lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception)
+        {
+            _loadError =
+                "The next block could not be started safely. Please notify the proctor.";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void StartTimer()
+    {
+        var version = ++_timerVersion;
+        _ = RunTimerAsync(version);
+    }
+
+    private async Task RunTimerAsync(int version)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(
+                _lifetimeCancellation.Token))
+            {
+                if (version != _timerVersion)
+                {
+                    return;
+                }
+
+                _snapshot = await SessionService.CheckTimeoutAsync(
+                    _lifetimeCancellation.Token);
+                await InvokeAsync(StateHasChanged);
+
+                if (_snapshot.Attempt.Status != ExamAttemptStatus.Active)
+                {
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+            when (_lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception)
+        {
+            _loadError =
+                "The examination timer could not be verified. " +
+                "Stop working and notify the proctor.";
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void UpdateSaveStatus()
+    {
+        if (_snapshot is null ||
+            _snapshot.Attempt.Status != ExamAttemptStatus.Active)
+        {
+            return;
+        }
+
+        _hasSaveError = false;
+        _saveStatus = _snapshot.Attempt.Answers.ContainsKey(
+            _snapshot.CurrentQuestion.Id)
+            ? "Answer saved locally."
+            : "No answer selected yet.";
+    }
+
+    private void PreventNavigation(LocationChangingContext context)
+    {
+        if (_snapshot?.Attempt.Status is
+            ExamAttemptStatus.Active or
+            ExamAttemptStatus.AwaitingNextBlock)
+        {
+            context.PreventNavigation();
+        }
+    }
+
+    public void Dispose()
+    {
+        _timerVersion++;
+        _lifetimeCancellation.Cancel();
+        _lifetimeCancellation.Dispose();
+    }
+}

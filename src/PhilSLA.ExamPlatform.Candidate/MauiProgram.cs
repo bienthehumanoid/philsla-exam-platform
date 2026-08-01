@@ -5,6 +5,8 @@ using PhilSLA.ExamPlatform.Candidate.Authentication;
 using PhilSLA.ExamPlatform.Candidate.Examination;
 using PhilSLA.ExamPlatform.Candidate.Persistence;
 using PhilSLA.ExamPlatform.Candidate.Readiness;
+using PhilSLA.ExamPlatform.Core.Examinations;
+using PhilSLA.ExamPlatform.Infrastructure.Examinations;
 
 namespace PhilSLA.ExamPlatform.Candidate;
 
@@ -36,8 +38,13 @@ public static class MauiProgram
 		builder.Services.AddSingleton<CandidateSessionState>();
 		builder.Services.AddSingleton<IConnectivity>(Connectivity.Current);
 		builder.Services.AddSingleton<IExamAssignmentProvider, SeededExamAssignmentProvider>();
+		builder.Services.AddSingleton<IExamDefinitionProvider, SeededExamDefinitionProvider>();
 		builder.Services.AddSingleton<IExamAuthorizationService>(
 			new TimedExamAuthorizationService(TimeSpan.FromSeconds(5)));
+		builder.Services.AddSingleton<IExamAttemptStore>(
+			new SqliteExamAttemptStore(candidateDatabasePath));
+		builder.Services.AddSingleton(TimeProvider.System);
+		builder.Services.AddSingleton<ExamSessionService>();
 
 #if WINDOWS
 		builder.Services.AddSingleton<IDeviceReadinessService, WindowsDeviceReadinessService>();

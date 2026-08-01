@@ -1,0 +1,83 @@
+<div class="dialog-backdrop">
+    <section class="finish-dialog"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="finish-dialog-title"
+             aria-describedby="finish-dialog-description"
+             @onkeydown="HandleKeyDownAsync">
+        <div class="dialog-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 3 5 6v5.5c0 4.5 2.8 7.7 7 9.5 4.2-1.8 7-5 7-9.5V6l-7-3Z" />
+                <path d="m9 12 2 2 4-4" />
+            </svg>
+        </div>
+        <h2 id="finish-dialog-title" tabindex="-1">Finish this block?</h2>
+        <p id="finish-dialog-description">
+            After submission, you cannot return to
+            @Snapshot.ActiveBlock.Title.
+        </p>
+
+        <dl>
+            <div>
+                <dt>Answered</dt>
+                <dd>@Snapshot.AnsweredCount</dd>
+            </div>
+            <div>
+                <dt>Unanswered</dt>
+                <dd>@UnansweredCount</dd>
+            </div>
+            <div>
+                <dt>Flagged</dt>
+                <dd>@Snapshot.FlaggedCount</dd>
+            </div>
+        </dl>
+
+        @if (UnansweredCount > 0)
+        {
+            <p class="dialog-warning" role="status">
+                You have @UnansweredCount unanswered
+                @(UnansweredCount == 1 ? "question" : "questions").
+            </p>
+        }
+
+        <div class="dialog-actions">
+            <button type="button"
+                    disabled="@IsBusy"
+                    @onclick="Cancel">
+                Return to questions
+            </button>
+            <button class="confirm-button"
+                    type="button"
+                    data-testid="confirm-finish-block"
+                    disabled="@IsBusy"
+                    @onclick="Confirm">
+                @(IsBusy ? "Submitting block" : "Finish block")
+            </button>
+        </div>
+    </section>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public ExamSessionSnapshot Snapshot { get; set; } = default!;
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public EventCallback Cancel { get; set; }
+
+    [Parameter]
+    public EventCallback Confirm { get; set; }
+
+    private int UnansweredCount =>
+        Snapshot.ActiveBlock.Questions.Count - Snapshot.AnsweredCount;
+
+    private async Task HandleKeyDownAsync(KeyboardEventArgs eventArgs)
+    {
+        if (eventArgs.Key == "Escape" && !IsBusy)
+        {
+            await Cancel.InvokeAsync();
+        }
+    }
+}

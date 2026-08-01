@@ -1,0 +1,140 @@
+<section id="exam-question"
+         class="question-workspace"
+         aria-labelledby="question-title"
+         tabindex="-1">
+    <div class="question-heading">
+        <div>
+            <p>
+                Block @Snapshot.Attempt.ActiveBlockNumber |
+                Question @Question.Number of
+                @Snapshot.ActiveBlock.Questions.Count
+            </p>
+            <h1 id="question-title">@Question.Prompt</h1>
+        </div>
+        <button class="flag-button @(IsFlagged ? "active" : string.Empty)"
+                type="button"
+                aria-label="@(IsFlagged
+                    ? "Remove flag from this question"
+                    : "Flag this question for review")"
+                aria-pressed="@IsFlagged"
+                disabled="@IsBusy"
+                @onclick="ToggleFlag">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M6 21V5m0 0c4-3 8 3 12 0v9c-4 3-8-3-12 0" />
+            </svg>
+        </button>
+    </div>
+
+    <fieldset class="answer-options" disabled="@IsBusy">
+        <legend class="visually-hidden">Choose one answer</legend>
+        @foreach (var choice in Question.Choices)
+        {
+            var isSelected = SelectedChoiceId == choice.Id;
+            <label class="answer-option @(isSelected ? "selected" : string.Empty)">
+                <input type="radio"
+                       name="@($"question-{Question.Id}")"
+                       value="@choice.Id"
+                       checked="@isSelected"
+                       data-testid="@($"answer-{choice.Label}")"
+                       @onchange="() => AnswerSelected.InvokeAsync(choice.Id)" />
+                <span class="choice-label" aria-hidden="true">@choice.Label</span>
+                <span class="choice-text">@choice.Text</span>
+                @if (isSelected)
+                {
+                    <svg class="selected-mark"
+                         aria-hidden="true"
+                         viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="m8 12 2.5 2.5L16 9" />
+                    </svg>
+                }
+            </label>
+        }
+    </fieldset>
+
+    <div class="question-footer">
+        <p class="@SaveStatusClass"
+           role="@SaveStatusRole"
+           aria-live="polite">
+            @SaveStatus
+        </p>
+        <nav aria-label="Question navigation">
+            <button type="button"
+                    disabled="@(IsBusy || Question.Number == 1)"
+                    @onclick="PreviousQuestion">
+                <span aria-hidden="true">&larr;</span>
+                Previous
+            </button>
+            <button class="next-button"
+                    type="button"
+                    disabled="@IsBusy"
+                    @onclick="NextOrReview">
+                @(IsLastQuestion ? "Review block" : "Next")
+                <span aria-hidden="true">&rarr;</span>
+            </button>
+        </nav>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public ExamSessionSnapshot Snapshot { get; set; } = default!;
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public string SaveStatus { get; set; } = "Ready";
+
+    [Parameter]
+    public bool HasSaveError { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> AnswerSelected { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> FlagChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<int> QuestionSelected { get; set; }
+
+    [Parameter]
+    public EventCallback ReviewRequested { get; set; }
+
+    private ExamQuestionDefinition Question => Snapshot.CurrentQuestion;
+
+    private Guid? SelectedChoiceId =>
+        Snapshot.Attempt.Answers.TryGetValue(
+            Question.Id,
+            out var answer)
+            ? answer.ChoiceId
+            : null;
+
+    private bool IsFlagged =>
+        Snapshot.Attempt.FlaggedQuestionIds.Contains(Question.Id);
+
+    private bool IsLastQuestion =>
+        Question.Number == Snapshot.ActiveBlock.Questions.Count;
+
+    private string SaveStatusClass =>
+        HasSaveError ? "save-status error" : "save-status";
+
+    private string? SaveStatusRole => HasSaveError ? "alert" : null;
+
+    private Task ToggleFlag()
+    {
+        return FlagChanged.InvokeAsync(!IsFlagged);
+    }
+
+    private Task PreviousQuestion()
+    {
+        return QuestionSelected.InvokeAsync(Question.Number - 1);
+    }
+
+    private Task NextOrReview()
+    {
+        return IsLastQuestion
+            ? ReviewRequested.InvokeAsync()
+            : QuestionSelected.InvokeAsync(Question.Number + 1);
+    }
+}

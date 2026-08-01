@@ -1,0 +1,123 @@
+.dialog-backdrop {
+    position: fixed;
+    z-index: 50;
+    display: grid;
+    inset: 0;
+    padding: 1rem;
+    place-items: center;
+    background: rgb(15 23 42 / 58%);
+}
+
+.finish-dialog {
+    width: min(100%, 29rem);
+    padding: 1.75rem;
+    border-radius: 0.9rem;
+    color: #101828;
+    background: #fff;
+    box-shadow: 0 1.5rem 3rem rgb(15 23 42 / 28%);
+}
+
+.dialog-icon {
+    display: grid;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.65rem;
+    place-items: center;
+    color: var(--philsla-burgundy);
+    background: #fff1f4;
+}
+
+.dialog-icon svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.finish-dialog h2 {
+    margin: 1.25rem 0 0;
+    font-size: 1.35rem;
+}
+
+.finish-dialog > p {
+    margin: 0.5rem 0 0;
+    color: #475467;
+}
+
+.finish-dialog dl {
+    display: grid;
+    margin: 1.25rem 0 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.finish-dialog dl div {
+    padding: 0.75rem;
+    border: 1px solid #d7dfeb;
+    border-radius: 0.55rem;
+    text-align: center;
+}
+
+.finish-dialog dt {
+    color: #667085;
+    font-size: 0.7rem;
+    font-weight: 750;
+    text-transform: uppercase;
+}
+
+.finish-dialog dd {
+    margin: 0.2rem 0 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.finish-dialog p.dialog-warning {
+    padding: 0.75rem;
+    border-left: 3px solid #dc6803;
+    color: #7a2e0e;
+    background: #fff8eb;
+    font-weight: 650;
+}
+
+.dialog-actions {
+    display: flex;
+    margin-top: 1.5rem;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.dialog-actions button {
+    min-height: 2.75rem;
+    padding: 0.6rem 1rem;
+    border: 1px solid #cfd8e5;
+    border-radius: 0.55rem;
+    color: #344054;
+    background: #fff;
+    cursor: pointer;
+    font-weight: 750;
+}
+
+.dialog-actions button.confirm-button {
+    border-color: var(--philsla-burgundy);
+    color: #fff;
+    background: var(--philsla-burgundy);
+}
+
+.dialog-actions button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+@media (max-width: 30rem) {
+    .finish-dialog {
+        padding: 1.25rem;
+    }
+
+    .dialog-actions {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+}

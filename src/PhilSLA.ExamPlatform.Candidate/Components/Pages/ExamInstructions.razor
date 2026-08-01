@@ -121,13 +121,10 @@
                 </p>
                 <button type="button"
                         data-testid="agree-and-continue"
-                        disabled="@(!_hasAgreed || _termsAccepted)"
+                        disabled="@(!_hasAgreed)"
                         @onclick="AcceptTerms">
-                    @(_termsAccepted ? "Terms accepted" : "Agree and continue")
-                    @if (!_termsAccepted)
-                    {
-                        <span aria-hidden="true">&rarr;</span>
-                    }
+                    Agree and continue
+                    <span aria-hidden="true">&rarr;</span>
                 </button>
             </footer>
         </section>
@@ -147,11 +144,9 @@
     ];
 
     private bool _hasAgreed;
-    private bool _termsAccepted;
 
-    private string StatusMessage => _termsAccepted
-        ? "Terms accepted. The webcam check will be added in the next iteration."
-        : "You must accept the terms before continuing.";
+    private string StatusMessage =>
+        "You must accept the terms before continuing.";
 
     protected override void OnInitialized()
     {
@@ -165,7 +160,7 @@
     {
         if (_hasAgreed)
         {
-            _termsAccepted = true;
+            Navigation.NavigateTo("/exam-authorization");
         }
     }
 }
