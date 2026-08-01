@@ -19,6 +19,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\PhilSLA.ExamPlatform.Candidate\PhilSLA.ExamPlatform.Candidate.csproj" />
+    <ProjectReference Include="..\..\src\PhilSLA.ExamPlatform.Core\PhilSLA.ExamPlatform.Core.csproj" />
+    <ProjectReference Include="..\..\src\PhilSLA.ExamPlatform.Infrastructure\PhilSLA.ExamPlatform.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

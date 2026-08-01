@@ -1,0 +1,160 @@
+@page "/exam-authorization"
+@layout LoginLayout
+@implements IDisposable
+@inject CandidateSessionState CandidateSession
+@inject IExamAssignmentProvider ExamAssignmentProvider
+@inject IExamAuthorizationService AuthorizationService
+@inject ExamSessionService ExamSession
+@inject NavigationManager Navigation
+
+<PageTitle>Proctor Authorization | PhilSLA Exam Platform</PageTitle>
+
+@if (CandidateSession.Candidate is not null && _assignment is not null)
+{
+    <main class="authorization-page" aria-labelledby="authorization-title">
+        <div class="shield-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 3 5 6v5.5c0 4.5 2.8 7.7 7 9.5 4.2-1.8 7-5 7-9.5V6l-7-3Z" />
+            </svg>
+        </div>
+
+        <h1 id="authorization-title">Waiting for proctor<br />authorization</h1>
+        <p class="authorization-copy">
+            System checks passed. Your workstation is now locked.<br />
+            Please wait for the remote proctor to initialize the<br />
+            examination block.
+        </p>
+
+        <dl class="authorization-details">
+            <div>
+                <dt>Candidate</dt>
+                <dd>@CandidateName</dd>
+            </div>
+            <div>
+                <dt>Proctor</dt>
+                <dd>@_assignment.Proctor</dd>
+            </div>
+            <div>
+                <dt>Security mode</dt>
+                <dd class="security-mode">Enforced</dd>
+            </div>
+        </dl>
+
+        <button class="release-button"
+                type="button"
+                data-testid="start-exam"
+                disabled="@(!_isReleased || _isStarting)"
+                @onclick="StartExamAsync">
+            @(_isStarting
+                ? "Starting secure exam"
+                : _isReleased
+                    ? "Proctor release received"
+                    : "Waiting for proctor release")
+            @if (_isReleased && !_isStarting)
+            {
+                <span aria-hidden="true">&rarr;</span>
+            }
+        </button>
+
+        <p class="release-status" role="status" aria-live="polite">
+            @ReleaseStatus
+        </p>
+    </main>
+}
+
+@code {
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private ExamAssignment? _assignment;
+    private bool _isReleased;
+    private bool _isStarting;
+    private string? _startError;
+
+    private string ReleaseStatus => _startError ??
+        (_isReleased
+            ? "Authorization received. Start the exam when ready."
+            : "Proctor authorization is pending.");
+
+    private string CandidateName
+    {
+        get
+        {
+            var candidate = CandidateSession.Candidate;
+            return candidate is null
+                ? string.Empty
+                : string.Join(
+                    " ",
+                    new[]
+                    {
+                        candidate.FirstName,
+                        candidate.MiddleName,
+                        candidate.LastName,
+                        candidate.Suffix
+                    }.Where(part => !string.IsNullOrWhiteSpace(part)));
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!CandidateSession.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/", replace: true);
+            return;
+        }
+
+        _assignment = await ExamAssignmentProvider.GetAssignmentAsync(
+            _lifetimeCancellation.Token);
+
+        try
+        {
+            await AuthorizationService.WaitForAuthorizationAsync(
+                _lifetimeCancellation.Token);
+            _isReleased = true;
+        }
+        catch (OperationCanceledException)
+            when (_lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+    }
+
+    private async Task StartExamAsync()
+    {
+        var candidate = CandidateSession.Candidate;
+        if (!_isReleased ||
+            _isStarting ||
+            candidate is null ||
+            _assignment is null)
+        {
+            return;
+        }
+
+        _isStarting = true;
+        _startError = null;
+
+        try
+        {
+            await ExamSession.StartAsync(
+                candidate.Id,
+                _lifetimeCancellation.Token);
+            Navigation.NavigateTo("/exam-session", replace: true);
+        }
+        catch (OperationCanceledException)
+            when (_lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception)
+        {
+            _startError =
+                "The exam could not be started safely. Please notify the proctor.";
+        }
+        finally
+        {
+            _isStarting = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        _lifetimeCancellation.Cancel();
+        _lifetimeCancellation.Dispose();
+    }
+}

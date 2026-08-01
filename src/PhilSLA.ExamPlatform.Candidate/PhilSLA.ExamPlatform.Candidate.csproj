@@ -71,4 +71,9 @@
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
     </ItemGroup>
 
+    <ItemGroup>
+        <ProjectReference Include="..\PhilSLA.ExamPlatform.Core\PhilSLA.ExamPlatform.Core.csproj" />
+        <ProjectReference Include="..\PhilSLA.ExamPlatform.Infrastructure\PhilSLA.ExamPlatform.Infrastructure.csproj" />
+    </ItemGroup>
+
 </Project>

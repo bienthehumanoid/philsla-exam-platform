@@ -1,0 +1,65 @@
+<header class="exam-workspace-header">
+    <div class="session-identity">
+        <img src="images/philsla-mark.svg"
+             width="32"
+             height="32"
+             alt="PhilSLA" />
+        <span class="header-divider" aria-hidden="true"></span>
+        <div>
+            <span>Exam session</span>
+            <strong>
+                @Snapshot.ActiveBlock.Title |
+                Block @Snapshot.Attempt.ActiveBlockNumber /
+                @Snapshot.Definition.Blocks.Count
+            </strong>
+        </div>
+    </div>
+
+    <div class="header-actions">
+        <div class="header-timer @TimerClass"
+             role="timer"
+             aria-label="@($"Time remaining {AccessibleTime}")">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+                <circle cx="12" cy="13" r="8" />
+                <path d="M12 9v4l2.5 1.5M9 3h6" />
+            </svg>
+            <strong data-testid="exam-timer">@FormattedTime</strong>
+        </div>
+        <button id="finish-block-button"
+                type="button"
+                data-testid="finish-block"
+                disabled="@IsBusy"
+                @onclick="FinishRequested">
+            Finish block
+        </button>
+    </div>
+</header>
+
+@code {
+    [Parameter, EditorRequired]
+    public ExamSessionSnapshot Snapshot { get; set; } = default!;
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public EventCallback FinishRequested { get; set; }
+
+    private int TotalSeconds =>
+        Math.Max(0, (int)Math.Ceiling(Snapshot.RemainingTime.TotalSeconds));
+
+    private string FormattedTime =>
+        $"{TotalSeconds / 3600:00}:" +
+        $"{TotalSeconds % 3600 / 60:00}:" +
+        $"{TotalSeconds % 60:00}";
+
+    private string AccessibleTime =>
+        $"{TotalSeconds / 3600} hours, " +
+        $"{TotalSeconds % 3600 / 60} minutes, " +
+        $"{TotalSeconds % 60} seconds";
+
+    private string TimerClass =>
+        Snapshot.RemainingTime <= TimeSpan.FromMinutes(5)
+            ? "urgent"
+            : string.Empty;
+}

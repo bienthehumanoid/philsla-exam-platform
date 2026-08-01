@@ -9,16 +9,21 @@ access is restored.
 
 ## Project status
 
-The repository currently contains only the initial candidate application baseline:
+The repository currently contains an early candidate application vertical slice:
 
-- .NET 10 MAUI Blazor Hybrid application generated from the standard template
+- .NET 10 MAUI Blazor Hybrid candidate application
 - Windows target: `net10.0-windows10.0.19041.0`
-- macOS target: `net10.0-maccatalyst`
-- verified Windows restore, build, and launch
+- Mac Catalyst target: `net10.0-maccatalyst`
+- temporary local candidate authentication and readiness flow
+- four-block, single-choice examination workspace with per-block timers
+- SQLite WAL persistence with append-only, integrity-chained answer revisions
+- question flagging, navigation, explicit block submission, timeout submission,
+  and local crash recovery
 
-The template UI is not an examination workflow. Authentication, exam delivery,
-offline persistence, proctor services, webcam recording, synchronization, lockdown
-integration, and production security controls are planned work.
+The seeded examination and timed proctor authorization are development fixtures.
+Signed exam-package delivery, encrypted local storage, proctor services, webcam
+recording, synchronization, lockdown integration, and production security controls
+remain planned work.
 
 Android and iOS folders remain from the generated template, but Android and iOS are
 not project targets or supported platforms.
@@ -84,9 +89,10 @@ the cloud API without changing the candidate exam workflow.
 └── PhilSLA.ExamPlatform.slnx
 ```
 
-Only `PhilSLA.ExamPlatform.Candidate` exists today. The architecture plans separate
-projects for the proctor UI, local proctor server, core domain and application logic,
-contracts, infrastructure, shared UI, and tests. A cloud API will be designed later.
+`PhilSLA.ExamPlatform.Core` contains the first examination rules and application
+service. `PhilSLA.ExamPlatform.Infrastructure` contains the SQLite examination
+attempt store. The architecture still plans separate proctor, local-server,
+contracts, and shared-UI projects. A cloud API will be designed later.
 
 ## Security and repository hygiene
 

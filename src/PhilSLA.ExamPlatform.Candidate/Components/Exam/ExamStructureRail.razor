@@ -1,0 +1,72 @@
+<aside class="exam-structure" aria-labelledby="exam-structure-title">
+    <div class="structure-content">
+        <h2 id="exam-structure-title">Exam structure</h2>
+        <ol>
+            @foreach (var block in Snapshot.Definition.Blocks)
+            {
+                var state = GetState(block.Number);
+                <li class="@state">
+                    <span aria-hidden="true">@BlockMarker(block.Number, state)</span>
+                    <strong>@block.Title</strong>
+                    <small>@StateLabel(state)</small>
+                </li>
+            }
+        </ol>
+    </div>
+
+    <div class="candidate-monitor">
+        <span class="candidate-avatar" aria-hidden="true">@CandidateInitials</span>
+        <div>
+            <strong>@CandidateName</strong>
+            <span><i aria-hidden="true"></i> Local autosave active</span>
+        </div>
+    </div>
+</aside>
+
+@code {
+    [Parameter, EditorRequired]
+    public ExamSessionSnapshot Snapshot { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string CandidateName { get; set; } = string.Empty;
+
+    private string CandidateInitials => string.Concat(
+        CandidateName
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(2)
+            .Select(part => char.ToUpperInvariant(part[0])));
+
+    private string GetState(int blockNumber)
+    {
+        if (blockNumber == Snapshot.Attempt.ActiveBlockNumber &&
+            Snapshot.Attempt.Status == ExamAttemptStatus.Active)
+        {
+            return "active";
+        }
+
+        if (Snapshot.Attempt.Blocks.Any(
+            block =>
+                block.BlockNumber == blockNumber &&
+                block.Status != BlockAttemptStatus.Active))
+        {
+            return "complete";
+        }
+
+        return "locked";
+    }
+
+    private static string BlockMarker(int number, string state)
+    {
+        return number.ToString();
+    }
+
+    private static string StateLabel(string state)
+    {
+        return state switch
+        {
+            "active" => "Current block",
+            "complete" => "Completed",
+            _ => "Locked"
+        };
+    }
+}

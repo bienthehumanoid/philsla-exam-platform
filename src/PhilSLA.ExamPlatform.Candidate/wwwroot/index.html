@@ -24,6 +24,15 @@
     </div>
 
     <script src="_framework/blazor.webview.js" autostart="false"></script>
+    <script>
+        window.philslaExam = {
+            focusElement: function (id) {
+                requestAnimationFrame(function () {
+                    document.getElementById(id)?.focus();
+                });
+            }
+        };
+    </script>
 
 </body>
 

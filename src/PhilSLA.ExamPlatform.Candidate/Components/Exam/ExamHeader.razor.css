@@ -1,0 +1,134 @@
+.exam-workspace-header {
+    display: flex;
+    min-width: 0;
+    min-height: 4.75rem;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+    grid-area: header;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    background: #fff;
+}
+
+.session-identity,
+.header-actions,
+.header-timer {
+    display: flex;
+    align-items: center;
+}
+
+.session-identity {
+    min-width: 0;
+    gap: 1rem;
+}
+
+.session-identity img {
+    flex: 0 0 auto;
+}
+
+.header-divider {
+    width: 1px;
+    height: 2rem;
+    background: var(--border-subtle);
+}
+
+.session-identity span,
+.session-identity strong {
+    display: block;
+}
+
+.session-identity span {
+    color: #475467;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.session-identity strong {
+    margin-top: 0.1rem;
+    overflow: hidden;
+    color: #101828;
+    font-size: 0.86rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.header-actions {
+    flex: 0 0 auto;
+    gap: 1rem;
+}
+
+.header-timer {
+    min-height: 2.75rem;
+    padding: 0.5rem 0.85rem;
+    border: 1px solid #d7dfeb;
+    border-radius: 0.6rem;
+    gap: 0.55rem;
+    color: #101828;
+    background: #f8fafc;
+    font-variant-numeric: tabular-nums;
+}
+
+.header-timer svg {
+    width: 1.05rem;
+    height: 1.05rem;
+    fill: none;
+    stroke: var(--philsla-burgundy);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.header-timer.urgent {
+    border-color: #f4b9ca;
+    color: #8f1238;
+    background: #fff5f7;
+}
+
+.header-actions button {
+    min-height: 2.75rem;
+    padding: 0.6rem 1.4rem;
+    border: 1px solid var(--philsla-burgundy);
+    border-radius: 0.6rem;
+    color: #fff;
+    background: var(--philsla-burgundy);
+    cursor: pointer;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition:
+        background-color 180ms ease,
+        border-color 180ms ease;
+}
+
+.header-actions button:hover:not(:disabled) {
+    border-color: var(--philsla-burgundy-hover);
+    background: var(--philsla-burgundy-hover);
+}
+
+.header-actions button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+@media (max-width: 44rem) {
+    .exam-workspace-header {
+        padding: 0.75rem 1rem;
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .header-actions {
+        justify-content: space-between;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .header-actions button {
+        transition: none;
+    }
+}

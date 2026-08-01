@@ -1,0 +1,139 @@
+@inject IJSRuntime JavaScript
+
+<aside class="question-palette" aria-labelledby="question-palette-title">
+    <h2 id="question-palette-title">Navigation palette</h2>
+
+    <div class="palette-grid"
+         role="grid"
+         aria-label="@($"{Snapshot.ActiveBlock.Title} questions")">
+        @foreach (var question in Snapshot.ActiveBlock.Questions)
+        {
+            <button id="@QuestionElementId(question.Number)"
+                    class="@QuestionClass(question)"
+                    type="button"
+                    role="gridcell"
+                    tabindex="@(IsCurrent(question) ? 0 : -1)"
+                    aria-current="@(IsCurrent(question) ? "true" : null)"
+                    aria-label="@QuestionLabel(question)"
+                    disabled="@IsBusy"
+                    @onclick="() => SelectQuestionAsync(question.Number)"
+                    @onkeydown="eventArgs => HandleKeyDownAsync(
+                        eventArgs,
+                        question.Number)">
+                @question.Number
+                @if (IsAnswered(question))
+                {
+                    <span class="answered-indicator" aria-hidden="true"></span>
+                }
+                @if (IsFlagged(question))
+                {
+                    <span class="flag-indicator" aria-hidden="true"></span>
+                }
+            </button>
+        }
+    </div>
+
+    <div class="palette-legend" aria-label="Question status legend">
+        <span><i class="answered" aria-hidden="true"></i> Answered</span>
+        <span><i class="flagged" aria-hidden="true"></i> Flagged</span>
+    </div>
+</aside>
+
+@code {
+    private const int ColumnCount = 4;
+
+    [Parameter, EditorRequired]
+    public ExamSessionSnapshot Snapshot { get; set; } = default!;
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public EventCallback<int> QuestionSelected { get; set; }
+
+    private bool IsCurrent(ExamQuestionDefinition question)
+    {
+        return question.Number == Snapshot.Attempt.CurrentQuestionNumber;
+    }
+
+    private bool IsAnswered(ExamQuestionDefinition question)
+    {
+        return Snapshot.Attempt.Answers.ContainsKey(question.Id);
+    }
+
+    private bool IsFlagged(ExamQuestionDefinition question)
+    {
+        return Snapshot.Attempt.FlaggedQuestionIds.Contains(question.Id);
+    }
+
+    private string QuestionClass(ExamQuestionDefinition question)
+    {
+        return string.Join(
+            " ",
+            new[]
+            {
+                IsCurrent(question) ? "current" : null,
+                IsAnswered(question) ? "answered" : null,
+                IsFlagged(question) ? "flagged" : null
+            }.Where(value => value is not null));
+    }
+
+    private string QuestionLabel(ExamQuestionDefinition question)
+    {
+        var states = new List<string>();
+        states.Add(IsAnswered(question) ? "answered" : "unanswered");
+        if (IsFlagged(question))
+        {
+            states.Add("flagged for review");
+        }
+
+        if (IsCurrent(question))
+        {
+            states.Add("current question");
+        }
+
+        return $"Question {question.Number}, {string.Join(", ", states)}";
+    }
+
+    private async Task SelectQuestionAsync(int questionNumber)
+    {
+        if (!IsBusy)
+        {
+            await QuestionSelected.InvokeAsync(questionNumber);
+        }
+    }
+
+    private async Task HandleKeyDownAsync(
+        KeyboardEventArgs eventArgs,
+        int questionNumber)
+    {
+        var questionCount = Snapshot.ActiveBlock.Questions.Count;
+        var target = eventArgs.Key switch
+        {
+            "ArrowRight" => Math.Min(questionCount, questionNumber + 1),
+            "ArrowLeft" => Math.Max(1, questionNumber - 1),
+            "ArrowDown" => Math.Min(
+                questionCount,
+                questionNumber + ColumnCount),
+            "ArrowUp" => Math.Max(1, questionNumber - ColumnCount),
+            "Home" => 1,
+            "End" => questionCount,
+            _ => questionNumber
+        };
+
+        if (target == questionNumber)
+        {
+            return;
+        }
+
+        await SelectQuestionAsync(target);
+        await JavaScript.InvokeVoidAsync(
+            "philslaExam.focusElement",
+            QuestionElementId(target));
+    }
+
+    private static string QuestionElementId(int questionNumber)
+    {
+        return $"question-palette-{questionNumber}";
+    }
+}

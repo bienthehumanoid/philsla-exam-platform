@@ -39,21 +39,16 @@ public sealed class ExamInstructionsTests
     }
 
     [TestMethod]
-    public void AcceptingTerms_ShowsTheCurrentIterationBoundary()
+    public void AcceptingTerms_NavigatesToProctorAuthorization()
     {
         using var context = CreateContext();
+        var navigation = context.Services.GetRequiredService<NavigationManager>();
         var component = context.Render<ExamInstructionsComponent>();
 
         component.Find("[data-testid='terms-agreement']").Change(true);
         component.Find("[data-testid='agree-and-continue']").Click();
 
-        StringAssert.Contains(
-            component.Find("#terms-status").TextContent,
-            "webcam check will be added in the next iteration");
-        Assert.IsTrue(
-            component
-                .Find("[data-testid='agree-and-continue']")
-                .HasAttribute("disabled"));
+        StringAssert.EndsWith(navigation.Uri, "/exam-authorization");
     }
 
     private static BunitContext CreateContext(bool authenticated = true)

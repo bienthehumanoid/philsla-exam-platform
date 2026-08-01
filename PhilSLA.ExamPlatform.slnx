@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/PhilSLA.ExamPlatform.Candidate/PhilSLA.ExamPlatform.Candidate.csproj" />
+    <Project Path="src/PhilSLA.ExamPlatform.Core/PhilSLA.ExamPlatform.Core.csproj" />
+    <Project Path="src/PhilSLA.ExamPlatform.Infrastructure/PhilSLA.ExamPlatform.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PhilSLA.ExamPlatform.Candidate.Tests/PhilSLA.ExamPlatform.Candidate.Tests.csproj" />
