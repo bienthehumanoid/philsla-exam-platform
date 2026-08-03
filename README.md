@@ -9,7 +9,8 @@ access is restored.
 
 ## Project status
 
-The repository currently contains an early candidate application vertical slice:
+The repository currently contains an early candidate application vertical slice and
+a proctor application scaffold:
 
 - .NET 10 MAUI Blazor Hybrid candidate application
 - Windows target: `net10.0-windows10.0.19041.0`
@@ -19,6 +20,7 @@ The repository currently contains an early candidate application vertical slice:
 - SQLite WAL persistence with append-only, integrity-chained answer revisions
 - question flagging, navigation, explicit block submission, timeout submission,
   and local crash recovery
+- .NET 10 MAUI Blazor Hybrid proctor application shell for Windows and Mac Catalyst
 
 The seeded examination and timed proctor authorization are development fixtures.
 Signed exam-package delivery, encrypted local storage, proctor services, webcam
@@ -61,6 +63,13 @@ dotnet build .\src\PhilSLA.ExamPlatform.Candidate\PhilSLA.ExamPlatform.Candidate
 dotnet run --project .\src\PhilSLA.ExamPlatform.Candidate\PhilSLA.ExamPlatform.Candidate.csproj -f net10.0-windows10.0.19041.0
 ```
 
+Run the Proctor application shell with:
+
+```powershell
+dotnet build .\src\PhilSLA.ExamPlatform.Proctor\PhilSLA.ExamPlatform.Proctor.csproj -f net10.0-windows10.0.19041.0
+dotnet run --project .\src\PhilSLA.ExamPlatform.Proctor\PhilSLA.ExamPlatform.Proctor.csproj -f net10.0-windows10.0.19041.0
+```
+
 The application is currently unpackaged (`WindowsPackageType=None`).
 
 ## Temporary MVP login
@@ -84,15 +93,21 @@ the cloud API without changing the candidate exam workflow.
 ├── docs/
 │   └── architecture.md
 ├── src/
-│   └── PhilSLA.ExamPlatform.Candidate/
+│   ├── PhilSLA.ExamPlatform.Candidate/
+│   ├── PhilSLA.ExamPlatform.Core/
+│   ├── PhilSLA.ExamPlatform.Infrastructure/
+│   └── PhilSLA.ExamPlatform.Proctor/
+├── tests/
+│   └── PhilSLA.ExamPlatform.Candidate.Tests/
 ├── global.json
 └── PhilSLA.ExamPlatform.slnx
 ```
 
 `PhilSLA.ExamPlatform.Core` contains the first examination rules and application
 service. `PhilSLA.ExamPlatform.Infrastructure` contains the SQLite examination
-attempt store. The architecture still plans separate proctor, local-server,
-contracts, and shared-UI projects. A cloud API will be designed later.
+attempt store. `PhilSLA.ExamPlatform.Proctor` is currently a desktop application
+shell without operational workflows. The architecture still plans separate
+local-server, contracts, and shared-UI projects. A cloud API will be designed later.
 
 ## Security and repository hygiene
 

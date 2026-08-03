@@ -21,6 +21,7 @@ devices and the proctor machine.
 - SQLite WAL attempt persistence with append-only, integrity-chained answer revisions
 - Core examination rules separated from Candidate presentation and Infrastructure
   persistence
+- .NET 10 MAUI Blazor Hybrid proctor application shell for Windows and Mac Catalyst
 
 The current examination package, authorization delay, identity, and questions are
 development fixtures. Encryption, package signing, recording, synchronization,
@@ -33,7 +34,7 @@ Generated Android and iOS platform folders are present but are not project targe
 | Component | Responsibility | Status |
 | --- | --- | --- |
 | `PhilSLA.ExamPlatform.Candidate` | Candidate UI, local exam session, answer capture, recording orchestration, and proctor synchronization | Exam workspace vertical slice |
-| `PhilSLA.ExamPlatform.Proctor` | Proctor-facing desktop UI and operational controls | Planned |
+| `PhilSLA.ExamPlatform.Proctor` | Proctor-facing desktop UI and operational controls | Application scaffold |
 | `PhilSLA.ExamPlatform.Proctor.Server` | Local ASP.NET Core/Kestrel service used by candidates over the examination LAN | Planned |
 | `PhilSLA.ExamPlatform.Core` | Domain rules and application use cases | Initial examination session rules implemented |
 | `PhilSLA.ExamPlatform.Contracts` | Versioned messages and data-transfer contracts shared across processes | Planned |
