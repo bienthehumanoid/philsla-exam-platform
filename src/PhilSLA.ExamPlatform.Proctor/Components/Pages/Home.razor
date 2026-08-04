@@ -1,5 +1,20 @@
-﻿@page "/"
+@page "/home"
+@inject ProctorSessionState ProctorSession
+@inject NavigationManager Navigation
 
-<h1>Hello, world!</h1>
+@if (ProctorSession.Proctor is not null)
+{
+    <h1>Proctor dashboard</h1>
 
-Welcome to your new app.
+    <p>Signed in as @ProctorSession.Proctor.FirstName @ProctorSession.Proctor.LastName.</p>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (!ProctorSession.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/", replace: true);
+        }
+    }
+}

@@ -7,5 +7,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PhilSLA.ExamPlatform.Candidate.Tests/PhilSLA.ExamPlatform.Candidate.Tests.csproj" />
+    <Project Path="tests/PhilSLA.ExamPlatform.Proctor.Tests/PhilSLA.ExamPlatform.Proctor.Tests.csproj" />
   </Folder>
 </Solution>
