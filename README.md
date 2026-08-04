@@ -20,7 +20,7 @@ a proctor application scaffold:
 - SQLite WAL persistence with append-only, integrity-chained answer revisions
 - question flagging, navigation, explicit block submission, timeout submission,
   and local crash recovery
-- .NET 10 MAUI Blazor Hybrid proctor application shell for Windows and Mac Catalyst
+- .NET 10 MAUI Blazor Hybrid proctor application with temporary local authentication
 
 The seeded examination and timed proctor authorization are development fixtures.
 Signed exam-package delivery, encrypted local storage, proctor services, webcam
@@ -72,7 +72,7 @@ dotnet run --project .\src\PhilSLA.ExamPlatform.Proctor\PhilSLA.ExamPlatform.Pro
 
 The application is currently unpackaged (`WindowsPackageType=None`).
 
-## Temporary MVP login
+## Temporary MVP logins
 
 Until cloud authentication is available, the Candidate application uses an
 isolated SQLite-backed presentation account:
@@ -85,6 +85,17 @@ Password: DemoExam!2026
 Only a salted password hash is stored in the local database. The login page depends
 on an authentication-service interface so the temporary provider can be replaced by
 the cloud API without changing the candidate exam workflow.
+
+The Proctor application uses the same temporary SQLite-backed pattern with an
+isolated presentation account:
+
+```text
+Email: proctor@example.test
+Password: DemoProctor!2026
+```
+
+The authenticated candidate and proctor sessions remain in memory and do not survive
+an application restart.
 
 ## Repository structure
 
