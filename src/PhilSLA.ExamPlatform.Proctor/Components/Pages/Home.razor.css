@@ -1,0 +1,419 @@
+.schedule-page {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.page-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.page-heading h1 {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: 1.5rem;
+    font-weight: 750;
+    line-height: 1.2;
+}
+
+.page-heading p {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+}
+
+button {
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.secondary-button,
+.primary-button,
+.session-actions button {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.secondary-button,
+.session-actions button {
+    color: var(--text-primary);
+    background: var(--surface-card);
+    border: 1px solid var(--border-control);
+    box-shadow: var(--shadow-control);
+}
+
+.secondary-button svg,
+.primary-button svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.readiness-card {
+    margin-top: 24px;
+    padding: 20px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+}
+
+.readiness-heading {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.readiness-icon {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    flex: none;
+    place-items: center;
+    color: var(--status-success-bright);
+    background: var(--surface-dark);
+    border-radius: 10px;
+}
+
+.readiness-icon svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.readiness-copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.title-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.title-line h2 {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: 0.875rem;
+    font-weight: 750;
+}
+
+.verified-badge {
+    padding: 3px 9px;
+    color: var(--status-success-dark);
+    background: var(--surface-success-strong);
+    border-radius: 4px;
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    line-height: 1.4;
+    text-transform: uppercase;
+}
+
+.readiness-copy p {
+    margin: 2px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.primary-button {
+    min-width: 144px;
+    color: var(--text-on-dark);
+    background: var(--action-dark);
+    border: 1px solid var(--action-dark);
+    box-shadow: var(--shadow-control);
+}
+
+.diagnostic-status {
+    display: flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-top: 16px;
+    padding: 8px 12px;
+    color: var(--status-success-dark);
+    background: var(--surface-success-soft);
+    border: 1px solid var(--border-success);
+    border-radius: 10px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.6875rem;
+    font-weight: 700;
+}
+
+.diagnostic-message {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.diagnostic-message svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.diagnostic-metrics,
+.diagnostic-metrics div,
+.attendance-summary,
+.attendance-summary div {
+    display: flex;
+    margin: 0;
+}
+
+.diagnostic-metrics {
+    align-items: center;
+    gap: 20px;
+}
+
+.diagnostic-metrics div {
+    gap: 5px;
+}
+
+.diagnostic-metrics div + div::before {
+    margin-right: 15px;
+    content: "•";
+}
+
+.diagnostic-metrics dd,
+.attendance-summary dd {
+    margin: 0;
+}
+
+.sessions-section {
+    margin-top: 24px;
+}
+
+.section-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.section-heading svg {
+    width: 18px;
+    height: 18px;
+    color: var(--philsla-burgundy);
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.section-heading h2 {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: 0.875rem;
+    font-weight: 750;
+}
+
+.section-heading span {
+    padding: 3px 10px;
+    color: var(--status-info);
+    background: var(--surface-info-soft);
+    border-radius: 999px;
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.session-list {
+    display: grid;
+    gap: 16px;
+}
+
+.session-card {
+    padding: 22px 24px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+}
+
+.session-header,
+.exam-set-row,
+.session-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.session-header h3 {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: 1rem;
+    font-weight: 750;
+}
+
+.session-header p,
+.exam-set-row p {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.sync-badge {
+    flex: none;
+    padding: 4px 13px;
+    color: var(--status-warning-dark);
+    background: var(--surface-warning-soft);
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+}
+
+.exam-set-row {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.exam-set-row p {
+    margin: 0;
+}
+
+.exam-set-row p strong {
+    color: var(--text-strong);
+}
+
+.exam-set-row > span {
+    color: var(--text-faint);
+    font-size: 0.6875rem;
+}
+
+.session-footer {
+    margin-top: 20px;
+}
+
+.attendance-summary {
+    align-items: center;
+    gap: 14px;
+    color: var(--text-strong);
+    font-size: 0.6875rem;
+}
+
+.attendance-summary div {
+    gap: 4px;
+}
+
+.attendance-summary dt {
+    font-weight: 750;
+}
+
+.attendance-summary dd {
+    color: var(--text-secondary);
+}
+
+.attendance-summary .capacity {
+    gap: 6px;
+    color: var(--text-faint);
+}
+
+.attendance-summary .capacity dt,
+.attendance-summary .capacity dd {
+    color: inherit;
+    font-weight: 400;
+}
+
+.session-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.session-actions button {
+    min-width: 96px;
+    min-height: 36px;
+    padding: 7px 14px;
+    box-shadow: none;
+}
+
+@media (max-width: 900px) {
+    .readiness-heading,
+    .diagnostic-status,
+    .session-header,
+    .exam-set-row,
+    .session-footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .primary-button {
+        align-self: stretch;
+    }
+
+    .diagnostic-metrics {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .diagnostic-metrics div + div::before {
+        display: none;
+    }
+
+    .session-footer,
+    .session-actions {
+        width: 100%;
+    }
+
+    .session-actions button {
+        flex: 1;
+    }
+}
+
+@media (max-width: 520px) {
+    .page-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .secondary-button {
+        align-self: stretch;
+    }
+
+    .readiness-card,
+    .session-card {
+        padding: 16px;
+    }
+
+    .attendance-summary {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+}

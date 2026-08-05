@@ -1,77 +1,226 @@
-.page {
-    position: relative;
+.workstation-shell {
     display: flex;
-    flex-direction: column;
-}
-
-main {
-    flex: 1;
+    min-height: 100dvh;
+    background: var(--surface-page);
 }
 
 .sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    flex: 0 0 256px;
+    height: 100dvh;
+    background: var(--surface-card);
+    border-right: 1px solid var(--border-subtle);
 }
 
-.top-row {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #d6d5d5;
-    justify-content: flex-end;
-    height: 3.5rem;
+.workstation-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.workstation-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    min-height: 80px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 16px 28px 16px 32px;
+    background: var(--surface-card);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.station-summary,
+.user-actions,
+.station-node,
+.workstation-badge,
+.hub-status {
     display: flex;
     align-items: center;
 }
 
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        white-space: nowrap;
-        margin-left: 1.5rem;
-        text-decoration: none;
+.station-summary {
+    min-width: 0;
+    gap: 12px;
+}
+
+.workstation-badge {
+    flex: none;
+    gap: 9px;
+    min-height: 32px;
+    padding: 0 13px;
+    color: var(--text-on-dark);
+    background: var(--surface-dark);
+    border-radius: 8px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    background: var(--status-success);
+    border-radius: 50%;
+}
+
+.station-node {
+    min-width: 0;
+    min-height: 32px;
+    gap: 8px;
+    padding: 0 12px;
+    color: var(--text-secondary);
+    background: var(--surface-muted);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.station-node strong {
+    color: var(--philsla-burgundy);
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.hub-status {
+    gap: 6px;
+    color: var(--status-success-dark);
+    font-weight: 700;
+}
+
+.hub-status .status-dot {
+    width: 6px;
+    height: 6px;
+}
+
+.user-actions {
+    flex: none;
+    gap: 14px;
+}
+
+.icon-button {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    place-items: center;
+    color: var(--text-primary);
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+}
+
+.icon-button svg {
+    width: 21px;
+    height: 21px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.icon-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.header-divider {
+    width: 1px;
+    height: 32px;
+    margin: 0 4px;
+    background: var(--border-subtle);
+}
+
+.user-copy {
+    display: grid;
+    justify-items: end;
+    line-height: 1.2;
+}
+
+.user-copy strong {
+    color: var(--text-strong);
+    font-size: 0.875rem;
+}
+
+.user-copy span {
+    margin-top: 3px;
+    color: var(--text-muted);
+    font-size: 0.6875rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.user-avatar {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    color: var(--philsla-burgundy);
+    background: var(--surface-burgundy-soft);
+    border: 1px solid var(--border-burgundy-soft);
+    border-radius: 50%;
+    font-size: 0.875rem;
+    font-weight: 700;
+}
+
+.content {
+    padding: 32px;
+}
+
+@media (max-width: 1100px) {
+    .workstation-header {
+        align-items: flex-start;
     }
 
-    .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
-        text-decoration: underline;
-    }
-
-    .top-row ::deep a:first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-@media (max-width: 640.98px) {
-    .top-row {
-        justify-content: space-between;
-    }
-
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        margin-left: 0;
+    .station-summary {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
 
-@media (min-width: 641px) {
-    .page {
-        flex-direction: row;
+@media (max-width: 760px) {
+    .workstation-shell {
+        display: block;
     }
 
     .sidebar {
-        width: 250px;
-        height: 100vh;
-        position: sticky;
-        top: 0;
+        position: static;
+        width: auto;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--border-subtle);
     }
 
-    .top-row {
-        position: sticky;
-        top: 0;
-        z-index: 1;
+    .workstation-header {
+        position: static;
+        min-height: 0;
+        align-items: stretch;
+        flex-direction: column-reverse;
+        padding: 16px;
     }
 
-    .top-row.auth ::deep a:first-child {
-        flex: 1;
-        text-align: right;
-        width: 0;
+    .station-node {
+        width: 100%;
+        align-items: flex-start;
+        flex-direction: column;
+        white-space: normal;
     }
 
-    .top-row, article {
-        padding-left: 2rem !important;
-        padding-right: 1.5rem !important;
+    .user-actions {
+        justify-content: flex-end;
+    }
+
+    .content {
+        padding: 24px 16px;
     }
 }

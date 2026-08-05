@@ -2,14 +2,145 @@
 @inject ProctorSessionState ProctorSession
 @inject NavigationManager Navigation
 
-@if (ProctorSession.Proctor is not null)
-{
-    <h1>Proctor dashboard</h1>
+<PageTitle>Exam Schedule | PhilSLA Proctor Workstation</PageTitle>
 
-    <p>Signed in as @ProctorSession.Proctor.FirstName @ProctorSession.Proctor.LastName.</p>
+@if (ProctorSession.IsAuthenticated)
+{
+    <div class="schedule-page">
+        <header class="page-heading">
+            <div>
+                <h1>Exam Schedule</h1>
+                <p>Review assigned exam sessions and sync secure packages for deployment.</p>
+            </div>
+            <button class="secondary-button" type="button" disabled title="Schedule state controls are not available yet" aria-label="Reset All States (not available yet)">
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                    <path d="M3 3v5h5" />
+                </svg>
+                Reset All States
+            </button>
+        </header>
+
+        <section class="readiness-card" aria-labelledby="readiness-title">
+            <div class="readiness-heading">
+                <span class="readiness-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 3l7 3v5c0 4.6-2.9 8-7 10-4.1-2-7-5.4-7-10V6l7-3Z" />
+                        <path d="m9.5 12 1.7 1.7 3.6-3.7" />
+                    </svg>
+                </span>
+                <div class="readiness-copy">
+                    <div class="title-line">
+                        <h2 id="readiness-title">Workstation &amp; Network Readiness</h2>
+                        <span class="verified-badge">Verified ready</span>
+                    </div>
+                    <p>Verify internet connection speed, cloud API handshake, and workstation hardware diagnostics before exam launch.</p>
+                </div>
+                <button class="primary-button" type="button" disabled title="System diagnostics are not available yet" aria-label="Check System (not available yet)">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="m13 2-9 12h7l-1 8 9-12h-7l1-8Z" />
+                    </svg>
+                    Check System
+                </button>
+            </div>
+
+            <div class="diagnostic-status">
+                <span class="diagnostic-message">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="m8 12 2.5 2.5L16 9" />
+                    </svg>
+                    System Diagnostics Verified (100% Passed)
+                </span>
+                <dl class="diagnostic-metrics">
+                    <div><dt>Latency:</dt><dd>8ms</dd></div>
+                    <div><dt>Bandwidth:</dt><dd>142 Mbps</dd></div>
+                    <div><dt>Subnet:</dt><dd>LAN Active</dd></div>
+                </dl>
+            </div>
+        </section>
+
+        <section class="sessions-section" aria-labelledby="sessions-title">
+            <div class="section-heading">
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <rect x="3" y="5" width="18" height="16" rx="2" />
+                    <path d="M8 3v4M16 3v4M3 10h18" />
+                </svg>
+                <h2 id="sessions-title">Assigned Examination Sessions</h2>
+                <span>@Sessions.Length sessions</span>
+            </div>
+
+            <div class="session-list">
+                @foreach (var session in Sessions)
+                {
+                    <article class="session-card">
+                        <header class="session-header">
+                            <div>
+                                <h3>@session.Title</h3>
+                                <p>@session.Schedule · @session.Date · @session.Location</p>
+                            </div>
+                            <span class="sync-badge">Awaiting sync</span>
+                        </header>
+
+                        <div class="exam-set-row">
+                            <p>Assigned exam set : <strong>@session.ExamSet</strong></p>
+                            <span>Not yet verified</span>
+                        </div>
+
+                        <footer class="session-footer">
+                            <dl class="attendance-summary" aria-label="Attendance summary">
+                                <div><dt>@session.Present</dt><dd>present</dd></div>
+                                <div><dt>@session.Late</dt><dd>late</dd></div>
+                                <div><dt>@session.Absent</dt><dd>absent</dd></div>
+                                <div class="capacity"><dt>of</dt><dd>@session.Capacity</dd></div>
+                            </dl>
+                            <div class="session-actions">
+                                <button type="button" disabled title="Attendance workflow is not available yet" aria-label="Attendance (not available yet)">Attendance</button>
+                                <button type="button" disabled title="Exam launch is not available yet" aria-label="Start exam (not available yet)">Start exam</button>
+                            </div>
+                        </footer>
+                    </article>
+                }
+            </div>
+        </section>
+    </div>
 }
 
 @code {
+    private static readonly ExamSession[] Sessions =
+    [
+        new(
+            "PhilSLA - General admission",
+            "08:00 AM – 11:00 AM",
+            "Jun 15, 2026",
+            "Benitez Hall R101, University",
+            "PhilSLA General Admission 2026-A",
+            0,
+            0,
+            0,
+            6),
+        new(
+            "PhilSLA - General admission",
+            "09:00 AM – 12:00 PM",
+            "May 22, 2026",
+            "SEC Lecture Hall 1, Ateneo",
+            "PhilSLA General Admission 2026-A",
+            0,
+            0,
+            0,
+            5),
+        new(
+            "PhilSLA - General admission",
+            "01:00 PM – 04:00 PM",
+            "May 29, 2026",
+            "Training Room 204, Makati",
+            "PhilSLA General Admission 2026-B",
+            0,
+            0,
+            0,
+            8)
+    ];
+
     protected override void OnInitialized()
     {
         if (!ProctorSession.IsAuthenticated)
@@ -17,4 +148,15 @@
             Navigation.NavigateTo("/", replace: true);
         }
     }
+
+    private sealed record ExamSession(
+        string Title,
+        string Schedule,
+        string Date,
+        string Location,
+        string ExamSet,
+        int Present,
+        int Late,
+        int Absent,
+        int Capacity);
 }
