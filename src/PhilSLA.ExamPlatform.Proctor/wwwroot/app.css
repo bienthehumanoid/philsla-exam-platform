@@ -5,11 +5,32 @@
     --philsla-burgundy-hover: #76102f;
     --surface-page: #f8f9fb;
     --surface-card: #ffffff;
+    --surface-muted: #f1f5f9;
+    --surface-hover: #f7f8fa;
+    --surface-dark: #111a2e;
+    --surface-burgundy-soft: #f9eef2;
+    --surface-success-soft: #ecfdf5;
+    --surface-success-strong: #d1fae5;
+    --surface-warning-soft: #fff3cf;
+    --surface-info-soft: #e4e9ff;
     --text-primary: #172033;
     --text-strong: #101828;
+    --text-secondary: #475467;
     --text-muted: #667085;
+    --text-faint: #8996b3;
+    --text-on-dark: #ffffff;
     --border-subtle: #e1e6ed;
     --border-control: #cbd3df;
+    --border-burgundy-soft: #e7c4cf;
+    --border-success: #99e8c2;
+    --status-success: #16c79a;
+    --status-success-bright: #16e0b2;
+    --status-success-dark: #007a59;
+    --status-warning-dark: #a34b00;
+    --status-info: #3c3fd8;
+    --action-dark: #050807;
+    --shadow-card: 0 1px 2px rgb(15 23 42 / 6%);
+    --shadow-control: 0 1px 3px rgb(15 23 42 / 14%);
     --focus-ring: #2b6cb0;
 }
 

@@ -1,17 +1,62 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject ProctorSessionState ProctorSession
 
-<div class="page">
-    <div class="sidebar">
+<div class="workstation-shell">
+    <aside class="sidebar" aria-label="Proctor navigation">
         <NavMenu />
-    </div>
+    </aside>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+    <div class="workstation-main">
+        <header class="workstation-header">
+            <div class="station-summary" aria-label="Workstation status">
+                <span class="workstation-badge">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    Proctor Workstation v2.4
+                </span>
+                <span class="station-node">
+                    <strong>Station node:</strong>
+                    <span>UP Diliman - Benitez Hall R101</span>
+                    <span class="hub-status">
+                        <span class="status-dot" aria-hidden="true"></span>
+                        Local Hub Active (12ms)
+                    </span>
+                </span>
+            </div>
 
-        <article class="content px-4">
+            @if (ProctorSession.Proctor is not null)
+            {
+                <div class="user-actions">
+                    <button class="icon-button" type="button" aria-label="Notifications" disabled>
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" />
+                            <path d="M10 19a2.5 2.5 0 0 0 4 0" />
+                        </svg>
+                    </button>
+                    <span class="header-divider" aria-hidden="true"></span>
+                    <div class="user-copy">
+                        <strong>@ProctorSession.Proctor.FirstName @ProctorSession.Proctor.LastName</strong>
+                        <span>@ProctorSession.Proctor.Role</span>
+                    </div>
+                    <span class="user-avatar" aria-hidden="true">@UserInitials</span>
+                </div>
+            }
+        </header>
+
+        <main id="main-content" class="content" tabindex="-1">
             @Body
-        </article>
-    </main>
+        </main>
+    </div>
 </div>
+
+@code {
+    private string UserInitials
+    {
+        get
+        {
+            var proctor = ProctorSession.Proctor;
+            return proctor is null
+                ? string.Empty
+                : $"{proctor.FirstName.FirstOrDefault()}{proctor.LastName.FirstOrDefault()}".ToUpperInvariant();
+        }
+    }
+}
