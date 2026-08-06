@@ -565,18 +565,30 @@ public sealed class AttendancePageTests
             Assert.AreEqual(
                 "Attendance finalized",
                 component.Find(".finalized-banner").TextContent.Trim());
-            Assert.AreEqual("true", component.Find(".roster-panel").GetAttribute("aria-disabled"));
+            Assert.IsFalse(component.Find(".roster-panel").HasAttribute("aria-disabled"));
             Assert.IsFalse(component.Find(".roster-panel").HasAttribute("aria-readonly"));
             Assert.IsTrue(component.Find("[data-student-id]").HasAttribute("disabled"));
             StringAssert.StartsWith(
                 component.Find("[data-student-id]").GetAttribute("aria-label"),
                 "Read-only attendance for");
             Assert.IsTrue(component.Find(".correct-attendance").HasAttribute("disabled"));
+            Assert.IsTrue(component.Find(".end-session").HasAttribute("disabled"));
             Assert.HasCount(0, component.FindAll(".confirm-absent"));
             Assert.IsTrue(context.JSInterop.Invocations.Any(invocation =>
                 invocation.Identifier == "philslaAttendanceDialog.closeTo" &&
                 invocation.Arguments.Single()?.ToString() == "attendance-finalized-status"));
         });
+
+        var search = component.Find("#student-search");
+        Assert.IsFalse(search.HasAttribute("disabled"));
+        search.Input("No matching student");
+        Assert.HasCount(0, component.FindAll("[data-student-id]"));
+        search.Input("Ana");
+        Assert.HasCount(1, component.FindAll("[data-student-id]"));
+        Assert.IsTrue(component.Find("[data-student-id]").HasAttribute("disabled"));
+        StringAssert.StartsWith(
+            component.Find("[data-student-id]").GetAttribute("aria-label"),
+            "Read-only attendance for");
     }
 
     [TestMethod]
