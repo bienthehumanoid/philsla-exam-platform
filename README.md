@@ -22,15 +22,17 @@ a proctor workstation attendance vertical slice:
   and local crash recovery
 - .NET 10 MAUI Blazor Hybrid proctor workstation with temporary local authentication
 - seeded, offline manual attendance for assigned sessions, including Present/Late
-  check-in, absence review, corrections, durable SQLite records, audit history, and
-  audited finalization with read-only records
+  check-in, absence review, in-session proctor corrections before finalization,
+  durable SQLite records, audit history, and audited finalization with read-only
+  records
 
 The seeded examination and timed proctor authorization are development fixtures.
 Mobile QR scanning, signed permits, a LAN attendance endpoint, cross-process
-candidate admission, and cloud attendance synchronization are outside this
-workstation slice and remain planned work. Signed exam-package delivery, encrypted
-local storage, webcam recording, lockdown integration, and production security
-controls also remain planned.
+candidate admission, cloud attendance synchronization, rescheduling, and
+post-session administrative correction workflows are outside this workstation slice
+and remain planned work. Signed exam-package delivery, encrypted local storage,
+webcam recording, lockdown integration, and production security controls also
+remain planned.
 
 Android and iOS folders remain from the generated template, but Android and iOS are
 not project targets or supported platforms.
@@ -68,7 +70,7 @@ dotnet build .\src\PhilSLA.ExamPlatform.Candidate\PhilSLA.ExamPlatform.Candidate
 dotnet run --project .\src\PhilSLA.ExamPlatform.Candidate\PhilSLA.ExamPlatform.Candidate.csproj -f net10.0-windows10.0.19041.0
 ```
 
-Run the Proctor application shell with:
+Run the Proctor application with:
 
 ```powershell
 dotnet build .\src\PhilSLA.ExamPlatform.Proctor\PhilSLA.ExamPlatform.Proctor.csproj -f net10.0-windows10.0.19041.0
