@@ -58,6 +58,22 @@ public sealed class AttendanceServiceTests
     }
 
     [TestMethod]
+    public async Task CheckInReceivedBeforeStart_RemainsPresentWhenEarlierMutationCrossesStart()
+    {
+        await AssertQueuedCheckInUsesReceiptTimeAsync(
+            AttendanceTestData.StartsAtUtc.AddTicks(-1),
+            AttendanceStatus.Present);
+    }
+
+    [TestMethod]
+    public async Task CheckInReceivedBeforeCutoff_RemainsLateWhenEarlierMutationCrossesCutoff()
+    {
+        await AssertQueuedCheckInUsesReceiptTimeAsync(
+            AttendanceTestData.StartsAtUtc.AddMinutes(15).AddTicks(-1),
+            AttendanceStatus.Late);
+    }
+
+    [TestMethod]
     public async Task ManualCheckIn_WithBlankReason_IsRejected()
     {
         var fixture = CreateFixture(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
@@ -188,6 +204,7 @@ public sealed class AttendanceServiceTests
             Guid.Parse("44444444-4444-4444-4444-444444444444"),
             "2026-0002",
             "Ben Santos",
+            "A02",
             "photos/ben.jpg");
         var fixture = CreateFixture(
             AttendanceTestData.StartsAtUtc.AddMinutes(-10),
@@ -259,6 +276,54 @@ public sealed class AttendanceServiceTests
     }
 
     [TestMethod]
+    public async Task Correction_FromUnmarked_IsRejectedWithoutChangingAttendance()
+    {
+        var fixture = CreateFixture(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+        var before = await fixture.Service.LoadAsync(
+            fixture.Definition.Id,
+            AttendanceTestData.ProctorId);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Service.CorrectAsync(
+                fixture.Definition.Id,
+                AttendanceTestData.StudentId,
+                AttendanceStatus.Absent,
+                "Student was not present.",
+                AttendanceTestData.ProctorId));
+
+        Assert.AreEqual("AttendancePolicyException", exception.GetType().Name);
+        var restored = await fixture.Store.LoadAsync(fixture.Definition.Id);
+        Assert.IsNotNull(restored);
+        Assert.AreEqual(before.Record.Version, restored.Version);
+        Assert.AreEqual(AttendanceStatus.Unmarked, restored.Entries[0].Status);
+        Assert.IsEmpty(restored.AuditEntries);
+    }
+
+    [TestMethod]
+    public async Task Correction_FromPendingAbsence_IsRejectedWithoutChangingAttendance()
+    {
+        var fixture = CreateFixture(AttendanceTestData.StartsAtUtc.AddMinutes(15));
+        var before = await fixture.Service.ApplyCutoffAsync(
+            fixture.Definition.Id,
+            AttendanceTestData.ProctorId);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Service.CorrectAsync(
+                fixture.Definition.Id,
+                AttendanceTestData.StudentId,
+                AttendanceStatus.Absent,
+                "Student was not present.",
+                AttendanceTestData.ProctorId));
+
+        Assert.AreEqual("AttendancePolicyException", exception.GetType().Name);
+        var restored = await fixture.Store.LoadAsync(fixture.Definition.Id);
+        Assert.IsNotNull(restored);
+        Assert.AreEqual(before.Record.Version, restored.Version);
+        Assert.AreEqual(AttendanceStatus.PendingAbsence, restored.Entries[0].Status);
+        Assert.HasCount(before.AuditEntries.Count, restored.AuditEntries);
+    }
+
+    [TestMethod]
     public async Task Correction_AppendsAuditEntry()
     {
         var fixture = CreateFixture(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
@@ -311,17 +376,102 @@ public sealed class AttendanceServiceTests
     }
 
     [TestMethod]
-    public async Task PostCutoffPromotion_WithoutReceiptEvidence_IsRejected()
+    public async Task AdmissionCorrection_WithoutPreCutoffReceiptEvidence_IsRejected()
     {
         var fixture = CreateFixture(AttendanceTestData.StartsAtUtc.AddMinutes(15));
         await fixture.Service.ApplyCutoffAsync(fixture.Definition.Id, AttendanceTestData.ProctorId);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Service.CorrectAsync(
+        var absent = await fixture.Service.ConfirmAbsentAsync(
             fixture.Definition.Id,
             AttendanceTestData.StudentId,
-            AttendanceStatus.Present,
-            "Student arrived after the attendance list was reviewed.",
-            AttendanceTestData.ProctorId));
+            AttendanceTestData.ProctorId);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Service.CorrectAsync(
+                fixture.Definition.Id,
+                AttendanceTestData.StudentId,
+                AttendanceStatus.Present,
+                "Student arrived after the attendance list was reviewed.",
+                AttendanceTestData.ProctorId));
+
+        Assert.AreEqual("AttendancePolicyException", exception.GetType().Name);
+        var restored = await fixture.Store.LoadAsync(fixture.Definition.Id);
+        Assert.IsNotNull(restored);
+        Assert.AreEqual(absent.Record.Version, restored.Version);
+        Assert.AreEqual(AttendanceStatus.Absent, restored.Entries[0].Status);
+        Assert.HasCount(absent.AuditEntries.Count, restored.AuditEntries);
+    }
+
+    [TestMethod]
+    public async Task AdmissionCorrection_BeforeCutoffWithoutReceiptEvidence_IsRejected()
+    {
+        var fixture = CreateFixture(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+        var initial = await fixture.Service.LoadAsync(
+            fixture.Definition.Id,
+            AttendanceTestData.ProctorId);
+        var absent = initial.Record with
+        {
+            Entries =
+            [
+                initial.Entries[0] with
+                {
+                    Status = AttendanceStatus.Absent,
+                    ConfirmedByProctorId = AttendanceTestData.ProctorId
+                }
+            ],
+            Version = initial.Record.Version + 1
+        };
+        await fixture.Store.SaveAsync(absent, initial.Record.Version);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Service.CorrectAsync(
+                fixture.Definition.Id,
+                AttendanceTestData.StudentId,
+                AttendanceStatus.Late,
+                "Admission was requested without check-in evidence.",
+                AttendanceTestData.ProctorId));
+
+        Assert.AreEqual("AttendancePolicyException", exception.GetType().Name);
+        var restored = await fixture.Store.LoadAsync(fixture.Definition.Id);
+        Assert.IsNotNull(restored);
+        Assert.AreEqual(absent.Version, restored.Version);
+        Assert.AreEqual(AttendanceStatus.Absent, restored.Entries[0].Status);
+        Assert.IsNull(restored.Entries[0].ReceivedAtUtc);
+        Assert.IsEmpty(restored.AuditEntries);
+    }
+
+    [TestMethod]
+    public async Task AdmissionCorrection_WithPreCutoffReceiptEvidence_IsAllowed()
+    {
+        var fixture = CreateFixture(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+        var checkedIn = await fixture.Service.CheckInAsync(
+            fixture.Definition.Id,
+            AttendanceTestData.StudentId,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Identity confirmed from the roster.");
+        var receivedAtUtc = checkedIn.Entries[0].ReceivedAtUtc;
+        var revoked = await fixture.Service.CorrectAsync(
+            fixture.Definition.Id,
+            AttendanceTestData.StudentId,
+            AttendanceStatus.Absent,
+            "Admission revoked while identity was reviewed.",
+            AttendanceTestData.ProctorId);
+        fixture.TimeProvider.SetUtcNow(AttendanceTestData.StartsAtUtc.AddMinutes(15));
+
+        var corrected = await fixture.Service.CorrectAsync(
+            fixture.Definition.Id,
+            AttendanceTestData.StudentId,
+            AttendanceStatus.Late,
+            "Identity discrepancy was resolved.",
+            AttendanceTestData.ProctorId);
+
+        Assert.AreEqual(AttendanceStatus.Late, corrected.Entries[0].Status);
+        Assert.AreEqual(receivedAtUtc, corrected.Entries[0].ReceivedAtUtc);
+        Assert.HasCount(revoked.AuditEntries.Count + 1, corrected.AuditEntries);
+        Assert.IsTrue(await fixture.Service.CanAdmitAsync(
+            fixture.Definition.Id,
+            AttendanceTestData.StudentId));
     }
 
     [TestMethod]
@@ -437,6 +587,59 @@ public sealed class AttendanceServiceTests
         Assert.AreEqual(fixture.Definition.EndsAtUtc, finalized.Record.FinalizedAtUtc);
     }
 
+    private static async Task AssertQueuedCheckInUsesReceiptTimeAsync(
+        DateTimeOffset receivedAtUtc,
+        AttendanceStatus expectedStatus)
+    {
+        var secondStudent = new AssignedStudent(
+            Guid.Parse("44444444-4444-4444-4444-444444444444"),
+            "2026-0002",
+            "Ben Santos",
+            "A02",
+            "photos/ben.jpg");
+        var definition = AttendanceTestData.CreateDefinition(
+            [AttendanceTestData.CreateDefinition().Students[0], secondStudent]);
+        var provider = new InMemoryAttendanceSessionProvider([definition]);
+        var store = new BlockingLoadAttendanceStore();
+        var timeProvider = new TestTimeProvider(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+        var service = new AttendanceService(provider, store, timeProvider);
+        await service.CheckInAsync(
+            definition.Id,
+            AttendanceTestData.StudentId,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Identity confirmed from the roster.");
+        store.BlockNextLoad();
+        var earlierMutation = service.CorrectAsync(
+            definition.Id,
+            AttendanceTestData.StudentId,
+            AttendanceStatus.Present,
+            "Earlier clerical review.",
+            AttendanceTestData.ProctorId);
+        await store.LoadStarted.WaitAsync(TimeSpan.FromSeconds(2));
+
+        timeProvider.SetUtcNow(receivedAtUtc);
+        var queuedCheckIn = service.CheckInWithResultAsync(
+            definition.Id,
+            secondStudent.Id,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Identity confirmed from the roster.");
+        timeProvider.Advance(TimeSpan.FromTicks(2));
+        store.ReleaseLoad();
+
+        await earlierMutation;
+        var result = await queuedCheckIn;
+        var entry = result.Snapshot.Entries.Single(value => value.StudentId == secondStudent.Id);
+        var audit = result.Snapshot.AuditEntries.Single(value => value.StudentId == secondStudent.Id);
+        Assert.AreEqual(expectedStatus, entry.Status);
+        Assert.AreEqual(expectedStatus, audit.NewStatus);
+        Assert.AreEqual(receivedAtUtc, entry.ReceivedAtUtc);
+        Assert.AreEqual(receivedAtUtc, audit.OccurredAtUtc);
+    }
+
     private static Fixture CreateFixture(
         DateTimeOffset utcNow,
         IReadOnlyList<AssignedStudent>? students = null)
@@ -457,4 +660,44 @@ public sealed class AttendanceServiceTests
         InMemoryAttendanceStore Store,
         TestTimeProvider TimeProvider,
         AttendanceService Service);
+
+    private sealed class BlockingLoadAttendanceStore : IAttendanceStore
+    {
+        private readonly InMemoryAttendanceStore _inner = new();
+        private readonly TaskCompletionSource _loadStarted =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseLoad =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _blockNextLoad;
+
+        public Task LoadStarted => _loadStarted.Task;
+
+        public async Task<AttendanceSessionRecord?> LoadAsync(
+            Guid sessionId,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Exchange(ref _blockNextLoad, 0) == 1)
+            {
+                _loadStarted.TrySetResult();
+                await _releaseLoad.Task.WaitAsync(cancellationToken);
+            }
+
+            return await _inner.LoadAsync(sessionId, cancellationToken);
+        }
+
+        public Task<AttendanceSessionRecord> CreateAsync(
+            AttendanceSessionDefinition definition,
+            CancellationToken cancellationToken = default) =>
+            _inner.CreateAsync(definition, cancellationToken);
+
+        public Task<AttendanceSessionRecord> SaveAsync(
+            AttendanceSessionRecord record,
+            int expectedVersion,
+            CancellationToken cancellationToken = default) =>
+            _inner.SaveAsync(record, expectedVersion, cancellationToken);
+
+        public void BlockNextLoad() => Interlocked.Exchange(ref _blockNextLoad, 1);
+
+        public void ReleaseLoad() => _releaseLoad.TrySetResult();
+    }
 }

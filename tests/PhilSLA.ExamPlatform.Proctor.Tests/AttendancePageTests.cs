@@ -56,7 +56,7 @@ public sealed class AttendancePageTests
         var component = context.Render<AttendanceComponent>(
             parameters => parameters.Add(page => page.SessionId, SessionId));
 
-        component.WaitForElement("[data-student-id]").Click();
+        component.WaitForElement(".check-in-attendance").Click();
         component.Find("#manual-reason").Change("Printed permit was unavailable.");
         Assert.IsTrue(component.Find(".confirm-check-in").HasAttribute("disabled"));
         component.Find("#identity-confirmed").Change(true);
@@ -82,7 +82,7 @@ public sealed class AttendancePageTests
         var component = context.Render<AttendanceComponent>(
             parameters => parameters.Add(page => page.SessionId, SessionId));
 
-        component.WaitForElement("[data-student-id]").Click();
+        component.WaitForElement(".check-in-attendance").Click();
         component.Find("#identity-confirmed").Change(true);
         component.Find("#manual-reason").Change("   ");
 
@@ -114,12 +114,12 @@ public sealed class AttendancePageTests
     }
 
     [TestMethod]
-    [DataRow(-31, "Check-in has not opened", "outcome-warning")]
-    [DataRow(16, "Check-in closed", "outcome-error")]
-    public void CheckInOutsideWindow_ShowsExactServiceResult(
+    [DataRow(-31, 1, 0)]
+    [DataRow(16, 0, 1)]
+    public void CheckInOutsideWindow_DoesNotOfferInvalidCheckIn(
         int offsetMinutes,
-        string expected,
-        string expectedClass)
+        int expectedCheckInButtons,
+        int expectedConfirmAbsentButtons)
     {
         using var context = CreateAttendanceContext(
             AttendanceTestData.StartsAtUtc.AddMinutes(offsetMinutes),
@@ -127,14 +127,15 @@ public sealed class AttendancePageTests
         var component = context.Render<AttendanceComponent>(
             parameters => parameters.Add(page => page.SessionId, SessionId));
 
-        CompleteManualCheckIn(component);
-
         component.WaitForAssertion(() =>
         {
-            Assert.AreEqual(expected, component.Find(".check-in-result").TextContent.Trim());
-            Assert.IsTrue(component.Find(".check-in-result").ClassList.Contains(expectedClass));
+            Assert.HasCount(expectedCheckInButtons, component.FindAll(".check-in-attendance"));
+            Assert.HasCount(expectedConfirmAbsentButtons, component.FindAll(".confirm-absent"));
         });
-        Assert.HasCount(1, component.FindAll("[data-student-id]"));
+        if (expectedCheckInButtons == 1)
+        {
+            Assert.IsTrue(component.Find(".check-in-attendance").HasAttribute("disabled"));
+        }
     }
 
     [TestMethod]
@@ -194,12 +195,30 @@ public sealed class AttendancePageTests
     }
 
     [TestMethod]
+    [DataRow(-31, "Check-in not open")]
+    [DataRow(-10, "Attendance in progress")]
+    [DataRow(16, "Absence review required")]
+    public void Page_ShowsTruthfulSessionState(int offsetMinutes, string expected)
+    {
+        using var context = CreateAttendanceContext(
+            AttendanceTestData.StartsAtUtc.AddMinutes(offsetMinutes),
+            authenticated: true);
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForAssertion(() =>
+            StringAssert.Contains(
+                component.Find(".attendance-state-banner").TextContent,
+                expected));
+    }
+
+    [TestMethod]
     public void Page_ShowsSessionTotalsScannerFallbackAndSearchableRoster()
     {
         var students = new[]
         {
-            new AssignedStudent(AttendanceTestData.StudentId, "2026-0001", "Ana Reyes", "photos/ana.jpg"),
-            new AssignedStudent(Guid.NewGuid(), "2026-0002", "Ben Santos", "photos/ben.jpg")
+            new AssignedStudent(AttendanceTestData.StudentId, "2026-0001", "Ana Reyes", "A01", "photos/ana.jpg"),
+            new AssignedStudent(Guid.NewGuid(), "2026-0002", "Ben Santos", "A02", "photos/ben.jpg")
         };
         using var context = CreateAttendanceContext(
             AttendanceTestData.StartsAtUtc.AddMinutes(-10),
@@ -210,21 +229,25 @@ public sealed class AttendancePageTests
 
         component.WaitForAssertion(() =>
         {
-            Assert.AreEqual("Civil Service Exam", component.Find("h1").TextContent.Trim());
+            Assert.AreEqual("Candidate Attendance", component.Find("h1").TextContent.Trim());
+            StringAssert.Contains(component.Find(".session-heading").TextContent, "Civil Service Exam");
             StringAssert.Contains(component.Find(".session-details").TextContent, "Room 101");
             StringAssert.Contains(component.Find(".session-details").TextContent, "Aug 6, 2026 · 04:00 PM – 06:00 PM");
-            CollectionAssert.AreEqual(
-                new[] { "03:30 PM", "04:15 PM" },
-                component.FindAll(".timing-summary dd").Select(value => value.TextContent.Trim()).ToArray());
-            Assert.AreEqual(
-                "Mobile scanner not connected — use manual check-in",
-                component.Find(".scanner-status").TextContent.Trim());
-            Assert.HasCount(5, component.FindAll(".attendance-total"));
+            StringAssert.Contains(component.Find(".session-facts").TextContent, "CSE-2026-A");
+            StringAssert.Contains(component.Find(".session-facts").TextContent, "03:30 PM");
+            StringAssert.Contains(component.Find(".session-facts").TextContent, "04:15 PM");
+            Assert.IsTrue(component.Find(".connect-scanner").HasAttribute("disabled"));
+            StringAssert.Contains(component.Find(".scanner-availability").TextContent, "Not available yet");
+            Assert.HasCount(6, component.FindAll(".attendance-summary-card"));
             Assert.HasCount(2, component.FindAll("[data-student-id]"));
-            Assert.HasCount(2, component.FindAll(".reference-photo"));
-            var firstAction = component.Find("[data-student-id]");
+            Assert.HasCount(0, component.FindAll(".reference-photo"));
+            Assert.HasCount(1, component.FindAll("table.roster-table"));
+            Assert.AreEqual("A01", component.Find(".seat-cell").TextContent.Trim());
+            Assert.HasCount(2, component.FindAll(".check-in-attendance"));
+            Assert.HasCount(0, component.FindAll(".present-attendance"));
+            var firstAction = component.Find(".check-in-attendance");
             Assert.AreEqual(
-                "Manually check in Ana Reyes, student number 2026-0001, current status Unmarked, check-in method Not checked in",
+                "Check in Ana Reyes, student number 2026-0001, seat A01",
                 firstAction.GetAttribute("aria-label"));
         });
 
@@ -237,6 +260,70 @@ public sealed class AttendancePageTests
     }
 
     [TestMethod]
+    public async Task StatusFilter_CombinesWithSearch()
+    {
+        var secondStudentId = Guid.NewGuid();
+        var students = new[]
+        {
+            new AssignedStudent(AttendanceTestData.StudentId, "2026-0001", "Ana Reyes", "A01", "photos/ana.jpg"),
+            new AssignedStudent(secondStudentId, "2026-0002", "Ben Santos", "A02", "photos/ben.jpg")
+        };
+        var provider = new InMemoryAttendanceSessionProvider([AttendanceTestData.CreateDefinition(students)]);
+        var store = new InMemoryAttendanceStore();
+        var timeProvider = new TestTimeProvider(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+        var service = new AttendanceService(provider, store, timeProvider);
+        await service.CheckInAsync(
+            SessionId,
+            AttendanceTestData.StudentId,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Identity confirmed against school ID.");
+        using var context = CreateAttendanceContext(
+            timeProvider.GetUtcNow(),
+            authenticated: true,
+            provider: provider,
+            store: store,
+            timeProvider: timeProvider);
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForElement("#attendance-status-filter")
+            .Change(nameof(AttendanceStatus.Present));
+        Assert.HasCount(1, component.FindAll("[data-student-id]"));
+        StringAssert.Contains(component.Find("[data-student-id]").TextContent, "Ana Reyes");
+
+        component.Find("#student-search").Input("No match");
+        Assert.HasCount(0, component.FindAll("[data-student-id]"));
+        component.Find("#student-search").Input("Ana");
+        Assert.HasCount(1, component.FindAll("[data-student-id]"));
+    }
+
+    [TestMethod]
+    [DataRow(-10, "Unmarked", 1, 0)]
+    [DataRow(16, "Pending", 0, 1)]
+    public void UnresolvedRows_DoNotOfferAttendanceCorrection(
+        int offsetMinutes,
+        string expectedStatus,
+        int expectedCheckInButtons,
+        int expectedConfirmAbsentButtons)
+    {
+        using var context = CreateAttendanceContext(
+            AttendanceTestData.StartsAtUtc.AddMinutes(offsetMinutes),
+            authenticated: true);
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.AreEqual(expectedStatus, component.Find(".student-status").TextContent.Trim());
+            Assert.HasCount(0, component.FindAll(".correct-attendance"));
+            Assert.HasCount(expectedCheckInButtons, component.FindAll(".check-in-attendance"));
+            Assert.HasCount(expectedConfirmAbsentButtons, component.FindAll(".confirm-absent"));
+        });
+    }
+
+    [TestMethod]
     public void Dialog_ProvidesAccessibleFocusTrapAndEscapeRestoration()
     {
         using var context = CreateAttendanceContext(
@@ -245,7 +332,7 @@ public sealed class AttendancePageTests
         var component = context.Render<AttendanceComponent>(
             parameters => parameters.Add(page => page.SessionId, SessionId));
 
-        component.WaitForElement("[data-student-id]").Click();
+        component.WaitForElement(".check-in-attendance").Click();
 
         var dialog = component.Find("[role='dialog']");
         Assert.AreEqual("true", dialog.GetAttribute("aria-modal"));
@@ -271,7 +358,7 @@ public sealed class AttendancePageTests
         var component = context.Render<AttendanceComponent>(
             parameters => parameters.Add(page => page.SessionId, SessionId));
 
-        component.WaitForElement("[data-student-id]").Click();
+        component.WaitForElement(".check-in-attendance").Click();
         component.Find(".cancel-check-in").Click();
 
         component.WaitForAssertion(() =>
@@ -310,12 +397,9 @@ public sealed class AttendancePageTests
         var component = context.Render<AttendanceComponent>(
             parameters => parameters.Add(page => page.SessionId, SessionId));
 
-        component.WaitForElement(".end-session").Click();
+        var endSession = component.WaitForElement(".end-session");
 
-        component.WaitForAssertion(() =>
-            StringAssert.Contains(
-                component.Find("[role=alert]").TextContent,
-                "Confirm all pending absences"));
+        Assert.IsTrue(endSession.HasAttribute("disabled"));
         Assert.HasCount(0, component.FindAll(".finalization-dialog"));
     }
 
@@ -343,8 +427,8 @@ public sealed class AttendancePageTests
     {
         var students = new[]
         {
-            new AssignedStudent(AttendanceTestData.StudentId, "2026-0001", "Ana Reyes", "photos/ana.jpg"),
-            new AssignedStudent(Guid.NewGuid(), "2026-0002", "Ben Santos", "photos/ben.jpg")
+            new AssignedStudent(AttendanceTestData.StudentId, "2026-0001", "Ana Reyes", "A01", "photos/ana.jpg"),
+            new AssignedStudent(Guid.NewGuid(), "2026-0002", "Ben Santos", "A02", "photos/ben.jpg")
         };
         using var context = CreateAttendanceContext(
             AttendanceTestData.StartsAtUtc.AddMinutes(16),
@@ -354,6 +438,13 @@ public sealed class AttendancePageTests
             parameters => parameters.Add(page => page.SessionId, SessionId));
 
         component.WaitForElement(".confirm-all-absent").Click();
+        Assert.HasCount(1, component.FindAll(".bulk-absence-dialog"));
+        StringAssert.Contains(
+            component.Find(".bulk-absence-dialog").TextContent,
+            "2 displayed students");
+        Assert.HasCount(2, component.FindAll(".student-status.status-pendingabsence"));
+
+        component.Find(".confirm-bulk-absence").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -367,8 +458,8 @@ public sealed class AttendancePageTests
     {
         var students = new[]
         {
-            new AssignedStudent(AttendanceTestData.StudentId, "2026-0001", "Ana Reyes", "photos/ana.jpg"),
-            new AssignedStudent(Guid.NewGuid(), "2026-0002", "Ben Santos", "photos/ben.jpg")
+            new AssignedStudent(AttendanceTestData.StudentId, "2026-0001", "Ana Reyes", "A01", "photos/ana.jpg"),
+            new AssignedStudent(Guid.NewGuid(), "2026-0002", "Ben Santos", "A02", "photos/ben.jpg")
         };
         var store = new FailOnSaveCallAttendanceStore(failOnSaveCall: 3);
         using var context = CreateAttendanceContext(
@@ -380,6 +471,7 @@ public sealed class AttendancePageTests
             parameters => parameters.Add(page => page.SessionId, SessionId));
 
         component.WaitForElement(".confirm-all-absent").Click();
+        component.Find(".confirm-bulk-absence").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -394,6 +486,58 @@ public sealed class AttendancePageTests
             Assert.IsFalse(component.Find(".operation-error").TextContent.Contains(
                 "Synthetic bulk persistence failure",
                 StringComparison.Ordinal));
+        });
+    }
+
+    [TestMethod]
+    public void BulkAbsenceConfirmation_AffectsOnlyDisplayedPendingStudents()
+    {
+        var students = new[]
+        {
+            new AssignedStudent(AttendanceTestData.StudentId, "2026-0001", "Ana Reyes", "A01", "photos/ana.jpg"),
+            new AssignedStudent(Guid.NewGuid(), "2026-0002", "Ben Santos", "A02", "photos/ben.jpg"),
+            new AssignedStudent(Guid.NewGuid(), "2026-0003", "Cara Lim", "A03", "photos/cara.jpg")
+        };
+        using var context = CreateAttendanceContext(
+            AttendanceTestData.StartsAtUtc.AddMinutes(16),
+            authenticated: true,
+            definition: AttendanceTestData.CreateDefinition(students));
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForElement("#student-search").Input("Ana");
+        component.Find("#attendance-status-filter").Change(nameof(AttendanceStatus.PendingAbsence));
+        Assert.HasCount(1, component.FindAll("[data-student-id]"));
+
+        component.Find(".confirm-all-absent").Click();
+        StringAssert.Contains(component.Find(".bulk-absence-dialog").TextContent, "1 displayed student");
+        component.Find(".confirm-bulk-absence").Click();
+
+        component.WaitForAssertion(() =>
+            Assert.HasCount(0, component.FindAll(".bulk-absence-dialog")));
+        component.Find("#student-search").Input(string.Empty);
+        component.Find("#attendance-status-filter").Change(string.Empty);
+        Assert.HasCount(1, component.FindAll(".student-status.status-absent"));
+        Assert.HasCount(2, component.FindAll(".student-status.status-pendingabsence"));
+    }
+
+    [TestMethod]
+    public void BulkAbsenceConfirmation_CanBeCancelledWithoutChanges()
+    {
+        using var context = CreateAttendanceContext(
+            AttendanceTestData.StartsAtUtc.AddMinutes(16),
+            authenticated: true);
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForElement(".confirm-all-absent").Click();
+        component.Find(".cancel-bulk-absence").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.HasCount(0, component.FindAll(".bulk-absence-dialog"));
+            Assert.HasCount(1, component.FindAll(".student-status.status-pendingabsence"));
+            Assert.HasCount(0, component.FindAll(".student-status.status-absent"));
         });
     }
 
@@ -451,7 +595,13 @@ public sealed class AttendancePageTests
         component.WaitForAssertion(() =>
         {
             Assert.AreEqual("Late", component.Find(".student-status").TextContent.Trim());
-            var newestAudit = component.Find(".audit-entry");
+            var history = component.Find("details.attendance-history");
+            Assert.IsFalse(history.HasAttribute("open"));
+            StringAssert.Contains(
+                history.QuerySelector("summary")!.TextContent,
+                "Attendance history (2)");
+            Assert.HasCount(2, history.QuerySelectorAll(".audit-entry"));
+            var newestAudit = history.QuerySelector(".audit-entry")!;
             StringAssert.Contains(newestAudit.TextContent, "Present");
             StringAssert.Contains(newestAudit.TextContent, "Late");
             StringAssert.Contains(newestAudit.TextContent, "Arrival time was copied incorrectly.");
@@ -509,6 +659,7 @@ public sealed class AttendancePageTests
         var component = context.Render<AttendanceComponent>(
             parameters => parameters.Add(page => page.SessionId, SessionId));
 
+        component.WaitForElement(".confirm-absent").Click();
         component.WaitForElement(".correct-attendance").Click();
         component.Find("#correction-status").Change(nameof(AttendanceStatus.Present));
         component.Find("#correction-reason").Change("Student arrived after cutoff.");
@@ -519,6 +670,43 @@ public sealed class AttendancePageTests
             Assert.AreEqual(
                 "Post-cutoff admission requires pre-cutoff check-in evidence.",
                 component.Find(".correction-error").TextContent.Trim());
+            Assert.HasCount(1, component.FindAll(".correction-dialog"));
+        });
+    }
+
+    [TestMethod]
+    public async Task CorrectionInfrastructureFailure_ShowsSafeGenericCopy()
+    {
+        var provider = new InMemoryAttendanceSessionProvider([AttendanceTestData.CreateDefinition()]);
+        var store = new FailOnSaveCallAttendanceStore(failOnSaveCall: 2);
+        var timeProvider = new TestTimeProvider(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+        var service = new AttendanceService(provider, store, timeProvider);
+        await service.CheckInAsync(
+            SessionId,
+            AttendanceTestData.StudentId,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Identity confirmed against school ID.");
+        using var context = CreateAttendanceContext(
+            timeProvider.GetUtcNow(),
+            authenticated: true,
+            provider: provider,
+            store: store,
+            timeProvider: timeProvider);
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForElement(".correct-attendance").Click();
+        component.Find("#correction-status").Change(nameof(AttendanceStatus.Late));
+        component.Find("#correction-reason").Change("Arrival time was copied incorrectly.");
+        component.Find(".save-correction").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var error = component.Find(".correction-error").TextContent.Trim();
+            Assert.AreEqual("The attendance correction could not be saved. Try again.", error);
+            Assert.IsFalse(error.Contains("Synthetic bulk persistence failure", StringComparison.Ordinal));
             Assert.HasCount(1, component.FindAll(".correction-dialog"));
         });
     }
@@ -563,17 +751,16 @@ public sealed class AttendancePageTests
         component.WaitForAssertion(() =>
         {
             Assert.AreEqual(
-                "Attendance finalized",
+                "Attendance finalized — read-only",
                 component.Find(".finalized-banner").TextContent.Trim());
             Assert.IsFalse(component.Find(".roster-panel").HasAttribute("aria-disabled"));
             Assert.IsFalse(component.Find(".roster-panel").HasAttribute("aria-readonly"));
-            Assert.IsTrue(component.Find("[data-student-id]").HasAttribute("disabled"));
-            StringAssert.StartsWith(
-                component.Find("[data-student-id]").GetAttribute("aria-label"),
-                "Read-only attendance for");
-            Assert.IsTrue(component.Find(".correct-attendance").HasAttribute("disabled"));
+            Assert.HasCount(0, component.FindAll(".check-in-attendance"));
+            Assert.HasCount(0, component.FindAll(".correct-attendance"));
             Assert.IsTrue(component.Find(".end-session").HasAttribute("disabled"));
             Assert.HasCount(0, component.FindAll(".confirm-absent"));
+            Assert.HasCount(1, component.FindAll("details.attendance-history"));
+            Assert.IsFalse(component.Find("details.attendance-history").HasAttribute("open"));
             Assert.IsTrue(context.JSInterop.Invocations.Any(invocation =>
                 invocation.Identifier == "philslaAttendanceDialog.closeTo" &&
                 invocation.Arguments.Single()?.ToString() == "attendance-finalized-status"));
@@ -585,10 +772,9 @@ public sealed class AttendancePageTests
         Assert.HasCount(0, component.FindAll("[data-student-id]"));
         search.Input("Ana");
         Assert.HasCount(1, component.FindAll("[data-student-id]"));
-        Assert.IsTrue(component.Find("[data-student-id]").HasAttribute("disabled"));
-        StringAssert.StartsWith(
-            component.Find("[data-student-id]").GetAttribute("aria-label"),
-            "Read-only attendance for");
+        Assert.IsFalse(component.Find("#attendance-status-filter").HasAttribute("disabled"));
+        Assert.HasCount(0, component.FindAll(".check-in-attendance"));
+        Assert.HasCount(0, component.FindAll(".correct-attendance"));
     }
 
     [TestMethod]
@@ -624,10 +810,11 @@ public sealed class AttendancePageTests
 
         component.WaitForAssertion(() =>
         {
-            Assert.AreEqual("Attendance finalized", component.Find(".finalized-banner").TextContent.Trim());
+            Assert.AreEqual("Attendance finalized — read-only", component.Find(".finalized-banner").TextContent.Trim());
             Assert.HasCount(0, component.FindAll(".finalization-dialog"));
             Assert.IsTrue(component.Find(".end-session").HasAttribute("disabled"));
-            Assert.IsTrue(component.Find("[data-student-id]").HasAttribute("disabled"));
+            Assert.HasCount(0, component.FindAll(".check-in-attendance"));
+            Assert.HasCount(0, component.FindAll(".correct-attendance"));
         });
     }
 
@@ -701,9 +888,51 @@ public sealed class AttendancePageTests
         component.WaitForAssertion(() =>
         {
             Assert.HasCount(0, component.FindAll(".finalization-dialog"));
-            Assert.AreEqual("Attendance finalized", component.Find(".finalized-banner").TextContent.Trim());
+            Assert.AreEqual("Attendance finalized — read-only", component.Find(".finalized-banner").TextContent.Trim());
             Assert.IsTrue(component.Find(".end-session").HasAttribute("disabled"));
-            Assert.IsTrue(component.Find("[data-student-id]").HasAttribute("disabled"));
+            Assert.HasCount(0, component.FindAll(".check-in-attendance"));
+            Assert.HasCount(0, component.FindAll(".correct-attendance"));
+        });
+    }
+
+    [TestMethod]
+    public async Task FinalizationRejection_WhenRecoveryLoadFails_ShowsSafeGenericFailure()
+    {
+        var provider = new InMemoryAttendanceSessionProvider([AttendanceTestData.CreateDefinition()]);
+        var store = new FinalizationRecoveryFailureAttendanceStore();
+        var timeProvider = new TestTimeProvider(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+        var service = new AttendanceService(provider, store, timeProvider);
+        await service.CheckInAsync(
+            SessionId,
+            AttendanceTestData.StudentId,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Identity confirmed against school ID.");
+        timeProvider.SetUtcNow(AttendanceTestData.StartsAtUtc.AddHours(2).AddMinutes(1));
+        using var context = CreateAttendanceContext(
+            timeProvider.GetUtcNow(),
+            authenticated: true,
+            provider: provider,
+            store: store,
+            timeProvider: timeProvider);
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForElement(".end-session").Click();
+        store.FailFinalizationAndRecoveryLoad();
+        component.Find("#finalization-confirmed").Change(true);
+        component.Find(".finalize-attendance").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var error = component.Find(".finalization-error").TextContent.Trim();
+            Assert.AreEqual(
+                "Attendance could not be finalized. Review the roster and try again.",
+                error);
+            Assert.IsFalse(error.Contains("Synthetic", StringComparison.Ordinal));
+            Assert.HasCount(1, component.FindAll(".finalization-dialog"));
+            Assert.IsFalse(component.Find(".finalize-attendance").HasAttribute("disabled"));
         });
     }
 
@@ -735,9 +964,10 @@ public sealed class AttendancePageTests
 
         component.WaitForAssertion(() =>
         {
-            Assert.AreEqual("Attendance finalized", component.Find(".finalized-banner").TextContent.Trim());
+            Assert.AreEqual("Attendance finalized — read-only", component.Find(".finalized-banner").TextContent.Trim());
             Assert.HasCount(1, component.FindAll("[data-student-id]"));
-            Assert.IsTrue(component.Find("[data-student-id]").HasAttribute("disabled"));
+            Assert.HasCount(0, component.FindAll(".check-in-attendance"));
+            Assert.HasCount(0, component.FindAll(".correct-attendance"));
             Assert.HasCount(0, component.FindAll(".page-error"));
         });
     }
@@ -828,7 +1058,7 @@ public sealed class AttendancePageTests
 
     private static void CompleteManualCheckIn(IRenderedComponent<AttendanceComponent> component)
     {
-        component.WaitForElement("[data-student-id]").Click();
+        component.WaitForElement(".check-in-attendance").Click();
         component.Find("#manual-reason").Change("Identity confirmed against school ID.");
         component.Find("#identity-confirmed").Change(true);
         component.Find(".confirm-check-in").Click();
@@ -979,6 +1209,48 @@ public sealed class AttendancePageTests
             var record = _inner.LoadAsync(SessionId).GetAwaiter().GetResult()!;
             _raceRecord = record with { FinalizedAtUtc = finalizedAtUtc };
         }
+    }
+
+    private sealed class FinalizationRecoveryFailureAttendanceStore : IAttendanceStore
+    {
+        private readonly InMemoryAttendanceStore _inner = new();
+        private bool _failFinalization;
+        private bool _failRecoveryLoad;
+
+        public Task<AttendanceSessionRecord?> LoadAsync(
+            Guid sessionId,
+            CancellationToken cancellationToken = default)
+        {
+            if (_failRecoveryLoad)
+            {
+                _failRecoveryLoad = false;
+                throw new InvalidOperationException("Synthetic recovery load failure.");
+            }
+
+            return _inner.LoadAsync(sessionId, cancellationToken);
+        }
+
+        public Task<AttendanceSessionRecord> CreateAsync(
+            AttendanceSessionDefinition definition,
+            CancellationToken cancellationToken = default) =>
+            _inner.CreateAsync(definition, cancellationToken);
+
+        public Task<AttendanceSessionRecord> SaveAsync(
+            AttendanceSessionRecord record,
+            int expectedVersion,
+            CancellationToken cancellationToken = default)
+        {
+            if (_failFinalization)
+            {
+                _failFinalization = false;
+                _failRecoveryLoad = true;
+                throw new InvalidOperationException("Synthetic finalization persistence failure.");
+            }
+
+            return _inner.SaveAsync(record, expectedVersion, cancellationToken);
+        }
+
+        public void FailFinalizationAndRecoveryLoad() => _failFinalization = true;
     }
 
     private sealed class BlockingRefreshAttendanceStore : IAttendanceStore
