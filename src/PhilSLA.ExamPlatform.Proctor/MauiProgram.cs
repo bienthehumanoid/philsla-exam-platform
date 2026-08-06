@@ -1,4 +1,7 @@
 using Microsoft.Extensions.Logging;
+using PhilSLA.ExamPlatform.Core.Attendance;
+using PhilSLA.ExamPlatform.Infrastructure.Attendance;
+using PhilSLA.ExamPlatform.Proctor.Attendance;
 using PhilSLA.ExamPlatform.Proctor.Authentication;
 using PhilSLA.ExamPlatform.Proctor.Persistence;
 
@@ -30,6 +33,11 @@ public static class MauiProgram
 		builder.Services.AddSingleton(proctorRepository);
 		builder.Services.AddSingleton<IAuthenticationService, TemporaryAuthenticationService>();
 		builder.Services.AddSingleton<ProctorSessionState>();
+		builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+		builder.Services.AddSingleton<IAttendanceSessionProvider, SeededAttendanceSessionProvider>();
+		builder.Services.AddSingleton<IAttendanceStore>(_ =>
+			new SqliteAttendanceStore(proctorDatabasePath));
+		builder.Services.AddSingleton<AttendanceService>();
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();
