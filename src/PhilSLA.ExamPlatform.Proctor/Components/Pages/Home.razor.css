@@ -38,7 +38,8 @@ button:disabled {
 
 .secondary-button,
 .primary-button,
-.session-actions button {
+.session-actions button,
+.attendance-link {
     display: inline-flex;
     min-height: 40px;
     align-items: center;
@@ -52,11 +53,16 @@ button:disabled {
 }
 
 .secondary-button,
-.session-actions button {
+.session-actions button,
+.attendance-link {
     color: var(--text-primary);
     background: var(--surface-card);
     border: 1px solid var(--border-control);
     box-shadow: var(--shadow-control);
+}
+
+.attendance-link {
+    text-decoration: none;
 }
 
 .secondary-button svg,
@@ -257,6 +263,41 @@ button:disabled {
     gap: 16px;
 }
 
+.sessions-loading,
+.sessions-error {
+    margin: 0;
+    padding: 20px 24px;
+    color: var(--text-secondary);
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+    font-size: 0.8125rem;
+}
+
+.sessions-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    color: var(--philsla-burgundy);
+}
+
+.sessions-error p {
+    margin: 0;
+}
+
+.retry-button {
+    min-height: 34px;
+    padding: 6px 14px;
+    color: var(--text-on-dark);
+    background: var(--action-dark);
+    border: 1px solid var(--action-dark);
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
 .session-card {
     padding: 22px 24px;
     background: var(--surface-card);
@@ -356,7 +397,8 @@ button:disabled {
     gap: 10px;
 }
 
-.session-actions button {
+.session-actions button,
+.attendance-link {
     min-width: 96px;
     min-height: 36px;
     padding: 7px 14px;
@@ -392,7 +434,8 @@ button:disabled {
         width: 100%;
     }
 
-    .session-actions button {
+    .session-actions button,
+    .attendance-link {
         flex: 1;
     }
 }

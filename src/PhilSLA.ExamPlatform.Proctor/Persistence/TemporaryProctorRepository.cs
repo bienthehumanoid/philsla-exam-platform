@@ -11,6 +11,8 @@ public sealed class TemporaryProctorRepository(
     public const string DemoEmail = "proctor@example.test";
     public const string DemoPassword = "DemoProctor!2026";
     public const string DemoRole = "PROCTOR";
+    public static Guid DemoProctorId { get; } =
+        Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private readonly SemaphoreSlim _initializationLock = new(1, 1);
     private bool _initialized;
@@ -102,7 +104,7 @@ public sealed class TemporaryProctorRepository(
             await using var seedCommand = connection.CreateCommand();
             seedCommand.CommandText =
                 """
-                INSERT OR IGNORE INTO temporary_proctor_users (
+                INSERT INTO temporary_proctor_users (
                     id,
                     first_name,
                     last_name,
@@ -121,9 +123,17 @@ public sealed class TemporaryProctorRepository(
                     $role,
                     $passwordHash,
                     $createdAt
-                );
+                )
+                ON CONFLICT(normalized_email)
+                DO UPDATE SET
+                    id = excluded.id,
+                    first_name = excluded.first_name,
+                    last_name = excluded.last_name,
+                    email = excluded.email,
+                    role = excluded.role,
+                    updated_at = excluded.created_at;
                 """;
-            seedCommand.Parameters.AddWithValue("$id", Guid.NewGuid().ToString());
+            seedCommand.Parameters.AddWithValue("$id", DemoProctorId.ToString());
             seedCommand.Parameters.AddWithValue("$firstName", "Demo");
             seedCommand.Parameters.AddWithValue("$lastName", "Proctor");
             seedCommand.Parameters.AddWithValue("$email", DemoEmail);

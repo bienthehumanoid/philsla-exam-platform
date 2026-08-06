@@ -1,0 +1,943 @@
+.attendance-page {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.attendance-loading,
+.page-error,
+.check-in-error,
+.check-in-result,
+.operation-error,
+.operation-result,
+.finalized-banner {
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    font-size: 0.8125rem;
+}
+
+.attendance-loading {
+    color: var(--text-secondary);
+    background: var(--surface-card);
+}
+
+.page-error,
+.check-in-error,
+.operation-error,
+.correction-error,
+.finalization-error {
+    color: var(--philsla-burgundy);
+    background: var(--surface-burgundy-soft);
+    border-color: var(--border-burgundy-soft);
+}
+
+.check-in-result {
+    color: var(--text-primary);
+    background: var(--surface-muted);
+    border-color: var(--border-control);
+    font-weight: 700;
+}
+
+.check-in-result.outcome-success {
+    color: var(--status-success-dark);
+    background: var(--surface-success-soft);
+    border-color: var(--border-success);
+}
+
+.check-in-result.outcome-warning {
+    color: var(--status-warning-dark);
+    background: var(--surface-warning-soft);
+    border-color: var(--philsla-gold);
+}
+
+.check-in-result.outcome-info {
+    color: var(--status-info);
+    background: var(--surface-info-soft);
+    border-color: var(--status-info);
+}
+
+.check-in-result.outcome-error {
+    color: var(--philsla-burgundy);
+    background: var(--surface-burgundy-soft);
+    border-color: var(--border-burgundy-soft);
+}
+
+.operation-result,
+.finalized-banner {
+    color: var(--status-success-dark);
+    background: var(--surface-success-soft);
+    border-color: var(--border-success);
+    font-weight: 700;
+}
+
+.finalized-banner::before {
+    content: "Final status: ";
+    font-weight: 500;
+}
+
+.attendance-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.back-link {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    color: var(--philsla-burgundy);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}
+
+.attendance-heading h1 {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: 1.5rem;
+    font-weight: 750;
+    line-height: 1.2;
+}
+
+.session-details {
+    margin: 5px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+}
+
+.timing-summary,
+.timing-summary div,
+.attendance-totals,
+.attendance-totals div {
+    margin: 0;
+}
+
+.timing-summary {
+    display: flex;
+    gap: 8px;
+}
+
+.timing-summary div {
+    min-width: 128px;
+    padding: 10px 12px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+}
+
+.timing-summary dt,
+.status-label {
+    color: var(--text-muted);
+    font-size: 0.6875rem;
+}
+
+.timing-summary dd {
+    margin: 2px 0 0;
+    color: var(--text-strong);
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+.end-session,
+.confirm-all-absent,
+.confirm-absent,
+.correct-attendance {
+    min-height: 44px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 750;
+}
+
+.end-session {
+    flex: none;
+    color: var(--text-on-dark);
+    background: var(--philsla-burgundy);
+    border: 1px solid var(--philsla-burgundy);
+}
+
+.end-session:disabled,
+.confirm-all-absent:disabled,
+.confirm-absent:disabled,
+.correct-attendance:disabled,
+.student-summary:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.operations-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.totals-panel,
+.scanner-panel,
+.roster-panel {
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+}
+
+.absence-review {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-top: 16px;
+    padding: 16px;
+    color: var(--text-primary);
+    background: var(--surface-warning-soft);
+    border: 1px solid var(--philsla-gold);
+    border-radius: 12px;
+}
+
+.absence-review h2,
+.absence-review p,
+.review-kicker {
+    margin: 0;
+}
+
+.absence-review h2 {
+    color: var(--text-strong);
+    font-size: 1rem;
+}
+
+.absence-review p:not(.review-kicker) {
+    margin-top: 4px;
+    font-size: 0.75rem;
+}
+
+.review-kicker {
+    color: var(--status-warning-dark);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.pending-count {
+    font-variant-numeric: tabular-nums;
+}
+
+.confirm-all-absent {
+    flex: none;
+    color: var(--text-strong);
+    background: var(--surface-card);
+    border: 1px solid var(--status-warning-dark);
+}
+
+.totals-panel {
+    padding: 16px;
+}
+
+.totals-panel h2,
+.scanner-panel h2,
+.roster-heading h2 {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: 0.875rem;
+    font-weight: 750;
+}
+
+.attendance-totals {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.attendance-total {
+    padding: 10px;
+    background: var(--surface-muted);
+    border-radius: 8px;
+    border-left: 4px solid var(--border-control);
+}
+
+.attendance-total dt {
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+    font-weight: 650;
+}
+
+.attendance-total dd {
+    margin: 2px 0 0;
+    color: var(--text-strong);
+    font-size: 1.125rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+}
+
+.attendance-total.status-present {
+    border-left-color: var(--status-success-dark);
+}
+
+.attendance-total.status-late,
+.attendance-total.status-pending {
+    border-left-color: var(--status-warning-dark);
+}
+
+.attendance-total.status-absent {
+    border-left-color: var(--philsla-burgundy);
+}
+
+.scanner-panel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+}
+
+.scanner-panel svg {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    color: var(--text-muted);
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.7;
+}
+
+.scanner-panel p {
+    margin: 3px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.roster-panel {
+    margin-top: 16px;
+    overflow: hidden;
+}
+
+.roster-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.roster-heading p {
+    margin: 3px 0 0;
+    color: var(--text-muted);
+    font-size: 0.6875rem;
+}
+
+.search-field {
+    display: grid;
+    width: min(100%, 360px);
+    gap: 5px;
+}
+
+.search-field label,
+.reason-field label {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 650;
+}
+
+.search-field input,
+.reason-field textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 12px;
+    color: var(--text-primary);
+    background: var(--surface-card);
+    border: 1px solid var(--border-control);
+    border-radius: 8px;
+}
+
+.search-field input::placeholder {
+    color: var(--text-muted);
+}
+
+.roster-list {
+    display: grid;
+}
+
+.student-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.student-row:last-child {
+    border-bottom: 0;
+}
+
+.student-summary {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    min-height: 76px;
+    grid-template-columns: 56px minmax(180px, 1.5fr) minmax(100px, 0.65fr) minmax(120px, 0.75fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 16px;
+    color: var(--text-primary);
+    background: var(--surface-card);
+    border: 0;
+    border: 0;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 160ms ease;
+}
+
+.student-summary:hover:not(:disabled) {
+    background: var(--surface-hover);
+}
+
+.student-summary:disabled {
+    color: var(--text-secondary);
+    background: var(--surface-muted);
+}
+
+.row-actions {
+    display: grid;
+    width: 172px;
+    align-content: center;
+    gap: 8px;
+    padding: 10px 16px 10px 0;
+    background: var(--surface-card);
+}
+
+.confirm-absent,
+.correct-attendance {
+    width: 100%;
+}
+
+.confirm-absent {
+    color: var(--text-on-dark);
+    background: var(--philsla-burgundy);
+    border: 1px solid var(--philsla-burgundy);
+}
+
+.correct-attendance {
+    color: var(--philsla-burgundy);
+    background: var(--surface-card);
+    border: 1px solid var(--border-burgundy-soft);
+}
+
+.read-only {
+    border-style: double;
+    border-width: 3px;
+}
+
+.read-only .row-actions {
+    background: var(--surface-muted);
+}
+
+.reference-photo,
+.dialog-student img {
+    display: block;
+    object-fit: cover;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+}
+
+.student-identity,
+.status-cell,
+.method-cell {
+    display: grid;
+    min-width: 0;
+}
+
+.student-identity strong {
+    overflow-wrap: anywhere;
+    color: var(--text-strong);
+    font-size: 0.8125rem;
+}
+
+.student-identity span {
+    margin-top: 2px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.student-status,
+.check-in-method {
+    font-size: 0.75rem;
+    font-weight: 750;
+}
+
+.student-status.status-present {
+    color: var(--status-success-dark);
+}
+
+.student-status.status-late,
+.student-status.status-pendingabsence {
+    color: var(--status-warning-dark);
+}
+
+.student-status.status-absent {
+    color: var(--philsla-burgundy);
+}
+
+.student-status.status-unmarked,
+.check-in-method {
+    color: var(--text-secondary);
+}
+
+.manual-action {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    color: var(--philsla-burgundy);
+    background: var(--surface-burgundy-soft);
+    border: 1px solid var(--border-burgundy-soft);
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.empty-roster {
+    margin: 0;
+    padding: 32px 16px;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    text-align: center;
+}
+
+.audit-history {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+}
+
+.audit-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.audit-heading h2,
+.audit-heading p,
+.audit-history ol,
+.audit-entry p {
+    margin: 0;
+}
+
+.audit-heading h2 {
+    color: var(--text-strong);
+    font-size: 0.875rem;
+}
+
+.audit-heading p {
+    color: var(--text-muted);
+    font-size: 0.6875rem;
+}
+
+.audit-history ol {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 0;
+    list-style: none;
+}
+
+.audit-entry {
+    display: grid;
+    grid-template-columns: minmax(160px, 1fr) minmax(220px, 2fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--surface-muted);
+    border-radius: 8px;
+    font-size: 0.75rem;
+}
+
+.audit-entry div {
+    display: grid;
+}
+
+.audit-entry strong {
+    color: var(--text-strong);
+}
+
+.audit-entry span,
+.audit-entry small {
+    color: var(--text-secondary);
+}
+
+.audit-entry small {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.dialog-backdrop {
+    position: fixed;
+    z-index: 100;
+    inset: 0;
+    display: grid;
+    padding: 24px;
+    overflow-y: auto;
+    place-items: center;
+    background: color-mix(in srgb, var(--surface-dark) 55%, transparent);
+}
+
+.attendance-dialog {
+    width: min(100%, 520px);
+    padding: 20px;
+    color: var(--text-primary);
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    box-shadow: var(--shadow-control);
+}
+
+.correction-error,
+.finalization-error {
+    margin: 16px 0 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border-burgundy-soft);
+    border-radius: 8px;
+    font-size: 0.75rem;
+}
+
+.dialog-heading,
+.dialog-student,
+.dialog-actions {
+    display: flex;
+    align-items: center;
+}
+
+.dialog-heading {
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.dialog-heading p {
+    margin: 0 0 2px;
+    color: var(--philsla-burgundy);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.dialog-heading h2 {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: 1.125rem;
+}
+
+.dialog-close {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    flex: none;
+    padding: 0;
+    place-items: center;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.dialog-close:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-subtle);
+}
+
+.dialog-close svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 1.8;
+}
+
+.dialog-student {
+    gap: 14px;
+    margin: 20px 0;
+    padding: 12px;
+    background: var(--surface-muted);
+    border-radius: 10px;
+}
+
+.dialog-student div {
+    display: grid;
+}
+
+.dialog-student strong {
+    color: var(--text-strong);
+    font-size: 0.9375rem;
+}
+
+.dialog-student span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.compact-student {
+    margin-bottom: 16px;
+}
+
+.reason-field,
+.correction-status-field {
+    display: grid;
+    gap: 6px;
+}
+
+.correction-status-field {
+    margin-bottom: 16px;
+}
+
+.correction-status-field label {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 650;
+}
+
+.correction-status-field select {
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 12px;
+    color: var(--text-primary);
+    background: var(--surface-card);
+    border: 1px solid var(--border-control);
+    border-radius: 8px;
+}
+
+.reason-field textarea {
+    min-height: 88px;
+    resize: vertical;
+}
+
+.field-help,
+.field-error {
+    margin: 0;
+    font-size: 0.6875rem;
+}
+
+.field-help {
+    color: var(--text-muted);
+}
+
+.field-error {
+    color: var(--philsla-burgundy);
+    font-weight: 650;
+}
+
+.identity-confirmation {
+    display: grid;
+    min-height: 44px;
+    grid-template-columns: 22px 1fr;
+    align-items: start;
+    gap: 10px;
+    margin-top: 16px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 0.8125rem;
+}
+
+.identity-confirmation input {
+    width: 20px;
+    height: 20px;
+    margin: 1px 0 0;
+    accent-color: var(--philsla-burgundy);
+}
+
+.finalization-warning {
+    margin: 16px 0;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+}
+
+.finalization-totals {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+}
+
+.finalization-total {
+    padding: 12px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.finalization-total dt {
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+}
+
+.finalization-total dd {
+    margin: 3px 0 0;
+    color: var(--text-strong);
+    font-size: 1.125rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+}
+
+.dialog-actions {
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.dialog-actions button {
+    min-height: 44px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    font-weight: 700;
+}
+
+.cancel-check-in {
+    color: var(--text-primary);
+    background: var(--surface-card);
+    border: 1px solid var(--border-control);
+}
+
+.confirm-check-in {
+    color: var(--text-on-dark);
+    background: var(--philsla-burgundy);
+    border: 1px solid var(--philsla-burgundy);
+}
+
+.dialog-actions button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+@media (max-width: 1200px) {
+    .student-summary {
+        grid-template-columns: 56px minmax(0, 1fr);
+    }
+
+    .status-cell,
+    .method-cell,
+    .manual-action {
+        grid-column: 2;
+    }
+
+    .manual-action {
+        justify-self: stretch;
+    }
+}
+
+@media (max-width: 900px) {
+    .attendance-heading,
+    .roster-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .timing-summary,
+    .search-field {
+        width: 100%;
+    }
+
+    .timing-summary div {
+        flex: 1;
+    }
+
+    .operations-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .attendance-totals {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .absence-review,
+    .audit-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .confirm-all-absent {
+        width: 100%;
+    }
+
+    .student-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .row-actions {
+        width: auto;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 0 16px 12px 86px;
+    }
+
+    .audit-entry {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .audit-entry small {
+        text-align: left;
+    }
+
+}
+
+@media (max-width: 520px) {
+    .timing-summary {
+        flex-direction: column;
+    }
+
+    .attendance-totals {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dialog-backdrop {
+        align-items: start;
+        padding: 12px;
+    }
+
+    .attendance-dialog {
+        padding: 16px;
+    }
+
+    .row-actions,
+    .finalization-totals {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .row-actions {
+        padding-left: 16px;
+    }
+
+    .dialog-actions {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .student-summary {
+        transition: none;
+    }
+}
