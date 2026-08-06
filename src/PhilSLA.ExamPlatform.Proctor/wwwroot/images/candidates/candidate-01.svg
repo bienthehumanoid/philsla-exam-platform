@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title">
+  <title id="title">Synthetic candidate portrait with burgundy background</title>
+  <rect width="160" height="160" rx="20" fill="#7a2432"/>
+  <circle cx="80" cy="59" r="29" fill="#f0c7a5"/>
+  <path d="M48 57c2-23 15-36 32-36s31 13 33 36c-10-8-21-12-33-12S58 49 48 57Z" fill="#2d2730"/>
+  <path d="M29 151c4-37 23-57 51-57s47 20 51 57" fill="#f5efe8"/>
+  <path d="M61 65c5 5 12 8 19 8s14-3 19-8" fill="none" stroke="#9b5f52" stroke-linecap="round" stroke-width="3"/>
+</svg>

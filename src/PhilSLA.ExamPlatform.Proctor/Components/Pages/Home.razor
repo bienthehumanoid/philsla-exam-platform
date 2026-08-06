@@ -1,6 +1,7 @@
 @page "/home"
 @inject ProctorSessionState ProctorSession
 @inject NavigationManager Navigation
+@inject AttendanceService AttendanceService
 
 <PageTitle>Exam Schedule | PhilSLA Proctor Workstation</PageTitle>
 
@@ -67,96 +68,107 @@
                     <path d="M8 3v4M16 3v4M3 10h18" />
                 </svg>
                 <h2 id="sessions-title">Assigned Examination Sessions</h2>
-                <span>@Sessions.Length sessions</span>
+                <span>@(_isLoading ? "Loading" : $"{_sessions.Count} sessions")</span>
             </div>
 
-            <div class="session-list">
-                @foreach (var session in Sessions)
-                {
-                    <article class="session-card">
-                        <header class="session-header">
-                            <div>
-                                <h3>@session.Title</h3>
-                                <p>@session.Schedule · @session.Date · @session.Location</p>
-                            </div>
-                            <span class="sync-badge">Awaiting sync</span>
-                        </header>
+            @if (_isLoading)
+            {
+                <p class="sessions-loading" role="status">Loading assigned sessions...</p>
+            }
+            else if (_loadError is not null)
+            {
+                <div class="sessions-error" role="alert">
+                    <p>@_loadError</p>
+                    <button class="retry-button" type="button" @onclick="LoadSessionsAsync">Retry</button>
+                </div>
+            }
+            else
+            {
+                <div class="session-list">
+                    @foreach (var snapshot in _sessions)
+                    {
+                        var session = snapshot.Definition;
+                        <article class="session-card">
+                            <header class="session-header">
+                                <div>
+                                    <h3>@session.Title</h3>
+                                    <p>@FormatSchedule(session) · @FormatDate(session.StartsAtUtc) · @session.Room</p>
+                                </div>
+                                <span class="sync-badge">Attendance stored locally</span>
+                            </header>
 
-                        <div class="exam-set-row">
-                            <p>Assigned exam set : <strong>@session.ExamSet</strong></p>
-                            <span>Not yet verified</span>
-                        </div>
-
-                        <footer class="session-footer">
-                            <dl class="attendance-summary" aria-label="Attendance summary">
-                                <div><dt>@session.Present</dt><dd>present</dd></div>
-                                <div><dt>@session.Late</dt><dd>late</dd></div>
-                                <div><dt>@session.Absent</dt><dd>absent</dd></div>
-                                <div class="capacity"><dt>of</dt><dd>@session.Capacity</dd></div>
-                            </dl>
-                            <div class="session-actions">
-                                <button type="button" disabled title="Attendance workflow is not available yet" aria-label="Attendance (not available yet)">Attendance</button>
-                                <button type="button" disabled title="Exam launch is not available yet" aria-label="Start exam (not available yet)">Start exam</button>
+                            <div class="exam-set-row">
+                                <p>Assigned exam set : <strong>@session.ExamSet</strong></p>
                             </div>
-                        </footer>
-                    </article>
-                }
-            </div>
+
+                            <footer class="session-footer">
+                                <dl class="attendance-summary" aria-label="Attendance summary">
+                                    <div><dt>@snapshot.PresentCount</dt><dd>present</dd></div>
+                                    <div><dt>@snapshot.LateCount</dt><dd>late</dd></div>
+                                    <div><dt>@snapshot.AbsentCount</dt><dd>absent</dd></div>
+                                    <div class="capacity"><dt>of</dt><dd>@session.Students.Count</dd></div>
+                                </dl>
+                                <div class="session-actions">
+                                    <a class="attendance-link" href="@($"attendance/{session.Id}")">Attendance</a>
+                                    <button type="button" disabled title="Exam launch is not available yet" aria-label="Start exam (not available yet)">Start exam</button>
+                                </div>
+                            </footer>
+                        </article>
+                    }
+                </div>
+            }
         </section>
     </div>
 }
 
 @code {
-    private static readonly ExamSession[] Sessions =
-    [
-        new(
-            "PhilSLA - General admission",
-            "08:00 AM – 11:00 AM",
-            "Jun 15, 2026",
-            "Benitez Hall R101, University",
-            "PhilSLA General Admission 2026-A",
-            0,
-            0,
-            0,
-            6),
-        new(
-            "PhilSLA - General admission",
-            "09:00 AM – 12:00 PM",
-            "May 22, 2026",
-            "SEC Lecture Hall 1, Ateneo",
-            "PhilSLA General Admission 2026-A",
-            0,
-            0,
-            0,
-            5),
-        new(
-            "PhilSLA - General admission",
-            "01:00 PM – 04:00 PM",
-            "May 29, 2026",
-            "Training Room 204, Makati",
-            "PhilSLA General Admission 2026-B",
-            0,
-            0,
-            0,
-            8)
-    ];
+    private static readonly TimeSpan PhilippineOffset = TimeSpan.FromHours(8);
+    private IReadOnlyList<AttendanceSessionSnapshot> _sessions = [];
+    private bool _isLoading;
+    private string? _loadError;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         if (!ProctorSession.IsAuthenticated)
         {
             Navigation.NavigateTo("/", replace: true);
+            return;
+        }
+
+        await LoadSessionsAsync();
+    }
+
+    private async Task LoadSessionsAsync()
+    {
+        if (ProctorSession.Proctor is not { } proctor)
+        {
+            return;
+        }
+
+        _isLoading = true;
+        _loadError = null;
+        try
+        {
+            _sessions = await AttendanceService.LoadAssignedAsync(proctor.Id);
+        }
+        catch
+        {
+            _sessions = [];
+            _loadError = "Assigned sessions could not be loaded.";
+        }
+        finally
+        {
+            _isLoading = false;
         }
     }
 
-    private sealed record ExamSession(
-        string Title,
-        string Schedule,
-        string Date,
-        string Location,
-        string ExamSet,
-        int Present,
-        int Late,
-        int Absent,
-        int Capacity);
+    private static string FormatSchedule(AttendanceSessionDefinition session)
+    {
+        var start = session.StartsAtUtc.ToOffset(PhilippineOffset);
+        var end = session.EndsAtUtc.ToOffset(PhilippineOffset);
+        return $"{start:hh:mm tt} – {end:hh:mm tt}";
+    }
+
+    private static string FormatDate(DateTimeOffset startsAtUtc) =>
+        startsAtUtc.ToOffset(PhilippineOffset).ToString("MMM d, yyyy");
 }
