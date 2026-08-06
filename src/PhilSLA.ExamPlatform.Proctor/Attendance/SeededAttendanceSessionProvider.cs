@@ -1,4 +1,5 @@
 using PhilSLA.ExamPlatform.Core.Attendance;
+using PhilSLA.ExamPlatform.Proctor.Persistence;
 
 namespace PhilSLA.ExamPlatform.Proctor.Attendance;
 
@@ -12,7 +13,7 @@ public sealed class SeededAttendanceSessionProvider : IAttendanceSessionProvider
     [
         new(
             Guid.Parse("40000000-0000-0000-0000-000000000001"),
-            Guid.Empty,
+            TemporaryProctorRepository.DemoProctorId,
             "PhilSLA - General admission",
             "PhilSLA General Admission 2026-A",
             "Benitez Hall R101, University",
@@ -29,7 +30,7 @@ public sealed class SeededAttendanceSessionProvider : IAttendanceSessionProvider
             ]),
         new(
             Guid.Parse("40000000-0000-0000-0000-000000000002"),
-            Guid.Empty,
+            TemporaryProctorRepository.DemoProctorId,
             "PhilSLA - General admission",
             "PhilSLA General Admission 2026-A",
             "SEC Lecture Hall 1, Ateneo",
@@ -45,7 +46,7 @@ public sealed class SeededAttendanceSessionProvider : IAttendanceSessionProvider
             ]),
         new(
             Guid.Parse("40000000-0000-0000-0000-000000000003"),
-            Guid.Empty,
+            TemporaryProctorRepository.DemoProctorId,
             "PhilSLA - General admission",
             "PhilSLA General Admission 2026-B",
             "Training Room 204, Makati",
@@ -69,9 +70,8 @@ public sealed class SeededAttendanceSessionProvider : IAttendanceSessionProvider
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        IReadOnlyList<AttendanceSessionDefinition> assigned = Sessions
-            .Select(session => session with { AssignedProctorId = proctorId })
-            .ToArray();
+        IReadOnlyList<AttendanceSessionDefinition> assigned =
+            proctorId == TemporaryProctorRepository.DemoProctorId ? Sessions : [];
         return Task.FromResult(assigned);
     }
 
@@ -81,9 +81,10 @@ public sealed class SeededAttendanceSessionProvider : IAttendanceSessionProvider
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var session = Sessions.SingleOrDefault(candidate => candidate.Id == sessionId);
-        return Task.FromResult(
-            session is null ? null : session with { AssignedProctorId = proctorId });
+        var session = proctorId == TemporaryProctorRepository.DemoProctorId
+            ? Sessions.SingleOrDefault(candidate => candidate.Id == sessionId)
+            : null;
+        return Task.FromResult(session);
     }
 
     private static DateTimeOffset PhilippineTimeInUtc(

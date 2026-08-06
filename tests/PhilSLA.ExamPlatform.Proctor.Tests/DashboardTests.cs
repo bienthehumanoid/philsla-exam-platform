@@ -25,20 +25,60 @@ public sealed class DashboardTests
     }
 
     [TestMethod]
-    public void AuthenticatedProctor_SeesStoredAttendanceTotalsAndEnabledLink()
+    public async Task AuthenticatedProctor_SeesStoredAttendanceTotalsAndEnabledLinks()
     {
-        using var context = CreateContext(authenticated: true);
+        var provider = new SeededAttendanceSessionProvider();
+        var store = new InMemoryAttendanceStore();
+        var timeProvider = new TestTimeProvider(AttendanceTestData.StartsAtUtc);
+        var service = new AttendanceService(provider, store, timeProvider);
+        var sessions = await provider.GetAssignedSessionsAsync(AttendanceTestData.ProctorId);
+        var first = sessions[0];
+
+        timeProvider.SetUtcNow(first.StartsAtUtc.AddMinutes(-1));
+        await service.CheckInAsync(
+            first.Id,
+            first.Students[0].Id,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Seed present total.");
+        timeProvider.SetUtcNow(first.StartsAtUtc);
+        await service.CheckInAsync(
+            first.Id,
+            first.Students[1].Id,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Seed late total.");
+        timeProvider.SetUtcNow(first.StartsAtUtc.AddMinutes(15));
+        await service.ApplyCutoffAsync(first.Id, AttendanceTestData.ProctorId);
+        await service.ConfirmAbsentAsync(
+            first.Id,
+            first.Students[2].Id,
+            AttendanceTestData.ProctorId);
+
+        using var context = CreateContext(authenticated: true, provider, store, timeProvider);
 
         var component = context.Render<HomeComponent>();
 
         component.WaitForAssertion(() =>
         {
-            Assert.HasCount(1, component.FindAll(".session-card"));
-            Assert.AreEqual("0", component.Find(".attendance-summary dt").TextContent);
-            Assert.IsFalse(component.Find(".attendance-link").HasAttribute("aria-disabled"));
+            Assert.AreEqual("Exam Schedule", component.Find("h1").TextContent);
+            Assert.HasCount(3, component.FindAll(".session-card"));
+            var totals = component.Find(".session-card").QuerySelectorAll(".attendance-summary dt");
+            Assert.AreEqual("1", totals[0].TextContent);
+            Assert.AreEqual("1", totals[1].TextContent);
+            Assert.AreEqual("1", totals[2].TextContent);
+            Assert.HasCount(3, component.FindAll(".attendance-link"));
+            Assert.IsTrue(component.FindAll(".attendance-link")
+                .All(link => !link.HasAttribute("aria-disabled")));
             Assert.AreEqual(
-                $"attendance/{AttendanceTestData.CreateDefinition().Id}",
+                $"attendance/{first.Id}",
                 component.Find(".attendance-link").GetAttribute("href"));
+            Assert.IsTrue(component.Find(".primary-button").HasAttribute("disabled"));
+            Assert.HasCount(3, component.FindAll(".session-actions button"));
+            Assert.IsTrue(component.FindAll(".session-actions button")
+                .All(button => button.HasAttribute("disabled")));
         });
     }
 
@@ -58,21 +98,47 @@ public sealed class DashboardTests
     }
 
     [TestMethod]
-    public async Task SeededProvider_ProjectsCallerAndPreservesFixtureIds()
+    public async Task SeededProvider_UsesStableAssignmentsAndPhilippineScheduleInstants()
     {
-        var provider = new SeededAttendanceSessionProvider();
-        var firstProctorId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        var secondProctorId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var firstProvider = new SeededAttendanceSessionProvider();
+        var secondProvider = new SeededAttendanceSessionProvider();
+        var firstAssignment = await firstProvider.GetAssignedSessionsAsync(AttendanceTestData.ProctorId);
+        var secondAssignment = await secondProvider.GetAssignedSessionsAsync(AttendanceTestData.ProctorId);
 
-        var firstAssignment = await provider.GetAssignedSessionsAsync(firstProctorId);
-        var secondAssignment = await provider.GetAssignedSessionsAsync(secondProctorId);
-        var selected = await provider.GetSessionAsync(firstAssignment[0].Id, secondProctorId);
+        var expectedSessionIds = new[]
+        {
+            Guid.Parse("40000000-0000-0000-0000-000000000001"),
+            Guid.Parse("40000000-0000-0000-0000-000000000002"),
+            Guid.Parse("40000000-0000-0000-0000-000000000003")
+        };
+        var expectedStartsAtUtc = new[]
+        {
+            new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 5, 22, 1, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 5, 29, 5, 0, 0, TimeSpan.Zero)
+        };
+        var expectedEndsAtUtc = new[]
+        {
+            new DateTimeOffset(2026, 6, 15, 3, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 5, 22, 4, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 5, 29, 8, 0, 0, TimeSpan.Zero)
+        };
 
         Assert.HasCount(3, firstAssignment);
-        Assert.IsTrue(firstAssignment.All(session => session.AssignedProctorId == firstProctorId));
+        Assert.IsTrue(firstAssignment.All(session =>
+            session.AssignedProctorId == AttendanceTestData.ProctorId));
         CollectionAssert.AreEqual(
-            firstAssignment.Select(session => session.Id).ToArray(),
+            expectedSessionIds,
+            firstAssignment.Select(session => session.Id).ToArray());
+        CollectionAssert.AreEqual(
+            expectedSessionIds,
             secondAssignment.Select(session => session.Id).ToArray());
+        CollectionAssert.AreEqual(
+            expectedStartsAtUtc,
+            firstAssignment.Select(session => session.StartsAtUtc).ToArray());
+        CollectionAssert.AreEqual(
+            expectedEndsAtUtc,
+            firstAssignment.Select(session => session.EndsAtUtc).ToArray());
         CollectionAssert.AreEqual(
             firstAssignment.SelectMany(session => session.Students).Select(student => student.Id).ToArray(),
             secondAssignment.SelectMany(session => session.Students).Select(student => student.Id).ToArray());
@@ -82,7 +148,35 @@ public sealed class DashboardTests
         Assert.IsTrue(firstAssignment
             .SelectMany(session => session.Students)
             .All(student => student.ReferencePhotoPath.StartsWith("/images/candidates/candidate-", StringComparison.Ordinal)));
-        Assert.AreEqual(secondProctorId, selected?.AssignedProctorId);
+    }
+
+    [TestMethod]
+    public async Task SeededProvider_RejectsEveryOtherProctorWithoutSharingAttendanceState()
+    {
+        var provider = new SeededAttendanceSessionProvider();
+        var store = new InMemoryAttendanceStore();
+        var assigned = await provider.GetAssignedSessionsAsync(AttendanceTestData.ProctorId);
+        var first = assigned[0];
+        var timeProvider = new TestTimeProvider(first.StartsAtUtc.AddMinutes(-1));
+        var service = new AttendanceService(provider, store, timeProvider);
+        var otherProctorId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+
+        var checkedIn = await service.CheckInAsync(
+            first.Id,
+            first.Students[0].Id,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Verify assigned-proctor isolation.");
+
+        Assert.AreEqual(1, checkedIn.PresentCount);
+        Assert.HasCount(0, await provider.GetAssignedSessionsAsync(otherProctorId));
+        Assert.IsNull(await provider.GetSessionAsync(first.Id, otherProctorId));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.LoadAsync(first.Id, otherProctorId));
+        Assert.AreEqual(
+            1,
+            (await service.LoadAsync(first.Id, AttendanceTestData.ProctorId)).PresentCount);
     }
 
     [TestMethod]
@@ -117,7 +211,9 @@ public sealed class DashboardTests
 
     private static BunitContext CreateContext(
         bool authenticated = false,
-        IAttendanceSessionProvider? provider = null)
+        IAttendanceSessionProvider? provider = null,
+        IAttendanceStore? store = null,
+        TimeProvider? timeProvider = null)
     {
         var context = new BunitContext();
         var session = new ProctorSessionState();
@@ -134,9 +230,9 @@ public sealed class DashboardTests
         context.Services.AddSingleton(session);
         context.Services.AddSingleton(
             provider ?? new InMemoryAttendanceSessionProvider([AttendanceTestData.CreateDefinition()]));
-        context.Services.AddSingleton<IAttendanceStore, InMemoryAttendanceStore>();
-        context.Services.AddSingleton<TimeProvider>(
-            new TestTimeProvider(AttendanceTestData.StartsAtUtc));
+        context.Services.AddSingleton(store ?? new InMemoryAttendanceStore());
+        context.Services.AddSingleton(
+            timeProvider ?? new TestTimeProvider(AttendanceTestData.StartsAtUtc));
         context.Services.AddSingleton<AttendanceService>();
         return context;
     }
