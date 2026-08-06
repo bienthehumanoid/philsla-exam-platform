@@ -66,7 +66,10 @@ public sealed class AttendancePageTests
         {
             Assert.AreEqual("Present", component.Find(".student-status").TextContent.Trim());
             Assert.AreEqual("Checked in — Present", component.Find(".check-in-result").TextContent.Trim());
+            Assert.IsTrue(component.Find(".check-in-result").ClassList.Contains("outcome-success"));
             Assert.AreEqual("Manual", component.Find(".check-in-method").TextContent.Trim());
+            Assert.IsTrue(context.JSInterop.Invocations.Any(invocation =>
+                invocation.Identifier == "philslaAttendanceDialog.close"));
         });
     }
 
@@ -84,6 +87,8 @@ public sealed class AttendancePageTests
         component.Find("#manual-reason").Change("   ");
 
         Assert.IsTrue(component.Find(".confirm-check-in").HasAttribute("disabled"));
+        Assert.IsTrue(component.Find("#manual-reason").HasAttribute("required"));
+        Assert.AreEqual("true", component.Find("#manual-reason").GetAttribute("aria-required"));
         Assert.AreEqual(
             "Enter a reason for manual check-in.",
             component.Find("#manual-reason-error").TextContent.Trim());
@@ -104,13 +109,17 @@ public sealed class AttendancePageTests
         {
             Assert.AreEqual("Late", component.Find(".student-status").TextContent.Trim());
             Assert.AreEqual("Checked in — Late", component.Find(".check-in-result").TextContent.Trim());
+            Assert.IsTrue(component.Find(".check-in-result").ClassList.Contains("outcome-warning"));
         });
     }
 
     [TestMethod]
-    [DataRow(-31, "Check-in has not opened")]
-    [DataRow(16, "Check-in closed")]
-    public void CheckInOutsideWindow_ShowsExactServiceResult(int offsetMinutes, string expected)
+    [DataRow(-31, "Check-in has not opened", "outcome-warning")]
+    [DataRow(16, "Check-in closed", "outcome-error")]
+    public void CheckInOutsideWindow_ShowsExactServiceResult(
+        int offsetMinutes,
+        string expected,
+        string expectedClass)
     {
         using var context = CreateAttendanceContext(
             AttendanceTestData.StartsAtUtc.AddMinutes(offsetMinutes),
@@ -121,7 +130,10 @@ public sealed class AttendancePageTests
         CompleteManualCheckIn(component);
 
         component.WaitForAssertion(() =>
-            Assert.AreEqual(expected, component.Find(".check-in-result").TextContent.Trim()));
+        {
+            Assert.AreEqual(expected, component.Find(".check-in-result").TextContent.Trim());
+            Assert.IsTrue(component.Find(".check-in-result").ClassList.Contains(expectedClass));
+        });
         Assert.HasCount(1, component.FindAll("[data-student-id]"));
     }
 
@@ -132,13 +144,6 @@ public sealed class AttendancePageTests
         var store = new InMemoryAttendanceStore();
         var timeProvider = new TestTimeProvider(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
         var service = new AttendanceService(provider, store, timeProvider);
-        await service.CheckInAsync(
-            SessionId,
-            AttendanceTestData.StudentId,
-            AttendanceCheckInMethod.Manual,
-            AttendanceTestData.ProctorId,
-            credentialId: null,
-            manualReason: "Initial identity verification.");
         using var context = CreateAttendanceContext(
             timeProvider.GetUtcNow(),
             authenticated: true,
@@ -148,10 +153,22 @@ public sealed class AttendancePageTests
         var component = context.Render<AttendanceComponent>(
             parameters => parameters.Add(page => page.SessionId, SessionId));
 
+        component.WaitForElement("[data-student-id]");
+        await service.CheckInAsync(
+            SessionId,
+            AttendanceTestData.StudentId,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Concurrent identity verification.");
+
         CompleteManualCheckIn(component);
 
         component.WaitForAssertion(() =>
-            Assert.AreEqual("Already checked in", component.Find(".check-in-result").TextContent.Trim()));
+        {
+            Assert.AreEqual("Already checked in", component.Find(".check-in-result").TextContent.Trim());
+            Assert.IsTrue(component.Find(".check-in-result").ClassList.Contains("outcome-info"));
+        });
     }
 
     [TestMethod]
@@ -205,6 +222,10 @@ public sealed class AttendancePageTests
             Assert.HasCount(5, component.FindAll(".attendance-total"));
             Assert.HasCount(2, component.FindAll("[data-student-id]"));
             Assert.HasCount(2, component.FindAll(".reference-photo"));
+            var firstAction = component.Find("[data-student-id]");
+            Assert.AreEqual(
+                "Manually check in Ana Reyes, student number 2026-0001, current status Unmarked, check-in method Not checked in",
+                firstAction.GetAttribute("aria-label"));
         });
 
         component.Find("#student-search").Input("Ben");
@@ -216,7 +237,7 @@ public sealed class AttendancePageTests
     }
 
     [TestMethod]
-    public void Dialog_ProvidesAccessibleFocusAndEscapeCancellation()
+    public void Dialog_ProvidesAccessibleFocusTrapAndEscapeRestoration()
     {
         using var context = CreateAttendanceContext(
             AttendanceTestData.StartsAtUtc.AddMinutes(-10),
@@ -229,8 +250,90 @@ public sealed class AttendancePageTests
         var dialog = component.Find("[role='dialog']");
         Assert.AreEqual("true", dialog.GetAttribute("aria-modal"));
         Assert.IsTrue(component.Find("#manual-reason").HasAttribute("autofocus"));
+        component.WaitForAssertion(() =>
+            Assert.IsTrue(context.JSInterop.Invocations.Any(invocation =>
+                invocation.Identifier == "philslaAttendanceDialog.open")));
         dialog.KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" });
-        Assert.HasCount(0, component.FindAll("[role='dialog']"));
+        component.WaitForAssertion(() =>
+        {
+            Assert.HasCount(0, component.FindAll("[role='dialog']"));
+            Assert.IsTrue(context.JSInterop.Invocations.Any(invocation =>
+                invocation.Identifier == "philslaAttendanceDialog.close"));
+        });
+    }
+
+    [TestMethod]
+    public void Dialog_CancelRestoresTriggerFocus()
+    {
+        using var context = CreateAttendanceContext(
+            AttendanceTestData.StartsAtUtc.AddMinutes(-10),
+            authenticated: true);
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForElement("[data-student-id]").Click();
+        component.Find(".cancel-check-in").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.HasCount(0, component.FindAll("[role='dialog']"));
+            Assert.IsTrue(context.JSInterop.Invocations.Any(invocation =>
+                invocation.Identifier == "philslaAttendanceDialog.close"));
+        });
+    }
+
+    [TestMethod]
+    public void TimerRefresh_RendersServiceOwnedCutoffStatus()
+    {
+        var timeProvider = new TestTimeProvider(AttendanceTestData.StartsAtUtc.AddMinutes(14));
+        using var context = CreateAttendanceContext(
+            timeProvider.GetUtcNow(),
+            authenticated: true,
+            timeProvider: timeProvider);
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForAssertion(() =>
+            Assert.AreEqual("Unmarked", component.Find(".student-status").TextContent.Trim()));
+        timeProvider.Advance(TimeSpan.FromMinutes(1));
+
+        component.WaitForAssertion(() =>
+            Assert.AreEqual("Pending", component.Find(".student-status").TextContent.Trim()));
+    }
+
+    [TestMethod]
+    public async Task Disposal_CancelsInFlightTimerRefresh()
+    {
+        var store = new BlockingRefreshAttendanceStore();
+        var timeProvider = new TestTimeProvider(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+        var context = CreateAttendanceContext(
+            timeProvider.GetUtcNow(),
+            authenticated: true,
+            store: store,
+            timeProvider: timeProvider);
+        var disposed = false;
+        try
+        {
+            var component = context.Render<AttendanceComponent>(
+                parameters => parameters.Add(page => page.SessionId, SessionId));
+            component.WaitForElement("[data-student-id]");
+            timeProvider.Advance(TimeSpan.FromMinutes(1));
+            await store.RefreshStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+            Assert.IsTrue(store.RefreshCancellationToken.CanBeCanceled);
+            var disposeTask = Task.Run(context.Dispose);
+            await store.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            await disposeTask.WaitAsync(TimeSpan.FromSeconds(2));
+            disposed = true;
+        }
+        finally
+        {
+            store.Release();
+            if (!disposed)
+            {
+                context.Dispose();
+            }
+        }
     }
 
     [TestMethod]
@@ -323,5 +426,72 @@ public sealed class AttendancePageTests
             int expectedVersion,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("Synthetic persistence failure.");
+    }
+
+    private sealed class BlockingRefreshAttendanceStore : IAttendanceStore
+    {
+        private readonly TaskCompletionSource _release =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private AttendanceSessionRecord? _record;
+        private int _loadCount;
+
+        public TaskCompletionSource RefreshStarted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource CancellationObserved { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public CancellationToken RefreshCancellationToken { get; private set; }
+
+        public async Task<AttendanceSessionRecord?> LoadAsync(
+            Guid sessionId,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _loadCount) < 3)
+            {
+                return _record;
+            }
+
+            RefreshCancellationToken = cancellationToken;
+            RefreshStarted.TrySetResult();
+            try
+            {
+                await _release.Task.WaitAsync(cancellationToken);
+                return _record;
+            }
+            catch (OperationCanceledException)
+            {
+                CancellationObserved.TrySetResult();
+                throw;
+            }
+        }
+
+        public Task<AttendanceSessionRecord> CreateAsync(
+            AttendanceSessionDefinition definition,
+            CancellationToken cancellationToken = default)
+        {
+            _record = new AttendanceSessionRecord(
+                definition.Id,
+                definition.Students.Select(student => new AttendanceEntry(
+                    student.Id,
+                    AttendanceStatus.Unmarked,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null)).ToArray(),
+                [],
+                null,
+                0);
+            return Task.FromResult(_record);
+        }
+
+        public Task<AttendanceSessionRecord> SaveAsync(
+            AttendanceSessionRecord record,
+            int expectedVersion,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Save was not expected during this test.");
+
+        public void Release() => _release.TrySetResult();
     }
 }

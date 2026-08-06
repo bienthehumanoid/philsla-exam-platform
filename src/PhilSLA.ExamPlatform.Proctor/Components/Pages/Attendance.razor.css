@@ -28,10 +28,34 @@
 }
 
 .check-in-result {
+    color: var(--text-primary);
+    background: var(--surface-muted);
+    border-color: var(--border-control);
+    font-weight: 700;
+}
+
+.check-in-result.outcome-success {
     color: var(--status-success-dark);
     background: var(--surface-success-soft);
     border-color: var(--border-success);
-    font-weight: 700;
+}
+
+.check-in-result.outcome-warning {
+    color: var(--status-warning-dark);
+    background: var(--surface-warning-soft);
+    border-color: var(--philsla-gold);
+}
+
+.check-in-result.outcome-info {
+    color: var(--status-info);
+    background: var(--surface-info-soft);
+    border-color: var(--status-info);
+}
+
+.check-in-result.outcome-error {
+    color: var(--philsla-burgundy);
+    background: var(--surface-burgundy-soft);
+    border-color: var(--border-burgundy-soft);
 }
 
 .attendance-heading {
@@ -529,6 +553,22 @@
     opacity: 0.5;
 }
 
+@media (max-width: 1200px) {
+    .student-row {
+        grid-template-columns: 56px minmax(0, 1fr);
+    }
+
+    .status-cell,
+    .method-cell,
+    .manual-action {
+        grid-column: 2;
+    }
+
+    .manual-action {
+        justify-self: stretch;
+    }
+}
+
 @media (max-width: 900px) {
     .attendance-heading,
     .roster-heading {
@@ -553,19 +593,6 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .student-row {
-        grid-template-columns: 56px minmax(0, 1fr);
-    }
-
-    .status-cell,
-    .method-cell,
-    .manual-action {
-        grid-column: 2;
-    }
-
-    .manual-action {
-        justify-self: stretch;
-    }
 }
 
 @media (max-width: 520px) {

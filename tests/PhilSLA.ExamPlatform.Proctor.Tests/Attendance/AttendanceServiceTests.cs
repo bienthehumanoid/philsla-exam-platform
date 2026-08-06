@@ -156,6 +156,32 @@ public sealed class AttendanceServiceTests
     }
 
     [TestMethod]
+    public async Task CheckInWithResult_AtomicallyReportsCreatedThenExisting()
+    {
+        var fixture = CreateFixture(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+
+        var created = await fixture.Service.CheckInWithResultAsync(
+            fixture.Definition.Id,
+            AttendanceTestData.StudentId,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Identity confirmed from the roster.");
+        var existing = await fixture.Service.CheckInWithResultAsync(
+            fixture.Definition.Id,
+            AttendanceTestData.StudentId,
+            AttendanceCheckInMethod.Qr,
+            AttendanceTestData.ProctorId,
+            credentialId: "credential-not-used-for-duplicate",
+            manualReason: null);
+
+        Assert.IsTrue(created.WasCreated);
+        Assert.IsFalse(existing.WasCreated);
+        Assert.AreEqual(created.Snapshot.Record.Version, existing.Snapshot.Record.Version);
+        Assert.AreEqual(created.Snapshot.Entries[0], existing.Snapshot.Entries[0]);
+    }
+
+    [TestMethod]
     public async Task ApplyCutoff_ConvertsOnlyUnmarkedEntriesAndIsIdempotent()
     {
         var secondStudent = new AssignedStudent(

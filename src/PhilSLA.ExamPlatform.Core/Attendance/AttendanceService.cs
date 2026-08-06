@@ -49,6 +49,23 @@ public sealed class AttendanceService
         Guid proctorId,
         string? credentialId,
         string? manualReason,
+        CancellationToken cancellationToken = default) =>
+        (await CheckInWithResultAsync(
+            sessionId,
+            studentId,
+            method,
+            proctorId,
+            credentialId,
+            manualReason,
+            cancellationToken)).Snapshot;
+
+    public async Task<AttendanceCheckInResult> CheckInWithResultAsync(
+        Guid sessionId,
+        Guid studentId,
+        AttendanceCheckInMethod method,
+        Guid proctorId,
+        string? credentialId,
+        string? manualReason,
         CancellationToken cancellationToken = default)
     {
         if (method is not AttendanceCheckInMethod.Qr and not AttendanceCheckInMethod.Manual)
@@ -68,7 +85,9 @@ public sealed class AttendanceService
 
             if (IsAdmissible(entry.Status))
             {
-                return new AttendanceSessionSnapshot(definition, record);
+                return new AttendanceCheckInResult(
+                    new AttendanceSessionSnapshot(definition, record),
+                    WasCreated: false);
             }
 
             var receivedAtUtc = _timeProvider.GetUtcNow();
@@ -109,7 +128,9 @@ public sealed class AttendanceService
                     proctorId,
                     receivedAtUtc));
             var saved = await _store.SaveAsync(changed, record.Version, cancellationToken);
-            return new AttendanceSessionSnapshot(definition, saved);
+            return new AttendanceCheckInResult(
+                new AttendanceSessionSnapshot(definition, saved),
+                WasCreated: true);
         }
         finally
         {

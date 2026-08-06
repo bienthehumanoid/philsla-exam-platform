@@ -23,6 +23,68 @@
         <span class="dismiss">🗙</span>
     </div>
 
+    <script>
+        window.philslaAttendanceDialog = (() => {
+            const focusableSelector = [
+                "button:not([disabled])",
+                "input:not([disabled])",
+                "textarea:not([disabled])",
+                "select:not([disabled])",
+                "a[href]",
+                "[tabindex]:not([tabindex='-1'])"
+            ].join(",");
+            let dialog;
+            let trigger;
+            let triggerId;
+
+            const focusableElements = () =>
+                dialog ? Array.from(dialog.querySelectorAll(focusableSelector)) : [];
+
+            const trapFocus = event => {
+                if (event.key !== "Tab") {
+                    return;
+                }
+
+                const elements = focusableElements();
+                if (elements.length === 0) {
+                    event.preventDefault();
+                    return;
+                }
+
+                const first = elements[0];
+                const last = elements[elements.length - 1];
+                if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            };
+
+            return {
+                open(element) {
+                    trigger = document.activeElement;
+                    triggerId = trigger?.id;
+                    dialog = element;
+                    dialog.addEventListener("keydown", trapFocus);
+                    (dialog.querySelector("[autofocus]") ?? focusableElements()[0])?.focus();
+                },
+                close() {
+                    dialog?.removeEventListener("keydown", trapFocus);
+                    dialog = undefined;
+                    requestAnimationFrame(() => {
+                        const target = trigger?.isConnected
+                            ? trigger
+                            : triggerId ? document.getElementById(triggerId) : undefined;
+                        target?.focus();
+                        trigger = undefined;
+                        triggerId = undefined;
+                    });
+                }
+            };
+        })();
+    </script>
     <script src="_framework/blazor.webview.js" autostart="false"></script>
 
 </body>

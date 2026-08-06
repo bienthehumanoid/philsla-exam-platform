@@ -3,6 +3,8 @@
 @inject ProctorSessionState ProctorSession
 @inject NavigationManager Navigation
 @inject AttendanceService AttendanceService
+@inject TimeProvider TimeProvider
+@inject IJSRuntime JS
 
 <PageTitle>Student Attendance | PhilSLA Proctor Workstation</PageTitle>
 
@@ -54,7 +56,7 @@
 
             @if (_checkInResult is not null)
             {
-                <div class="check-in-result" role="status">@_checkInResult</div>
+                <div class="check-in-result @_checkInOutcomeClass" role="status">@_checkInResult</div>
             }
 
             <section class="operations-grid" aria-label="Attendance operations">
@@ -123,8 +125,9 @@
                             var entry = EntryFor(student.Id);
                             <button class="student-row"
                                     type="button"
+                                    id="attendance-student-@student.Id"
                                     data-student-id="@student.Id"
-                                    aria-label="Manually check in @student.FullName, current status @StatusText(entry.Status)"
+                                    aria-label="Manually check in @student.FullName, student number @student.StudentNumber, current status @StatusText(entry.Status), check-in method @MethodText(entry.CheckInMethod)"
                                     @onclick="() => OpenManualCheckIn(student)">
                                 <img class="reference-photo"
                                      src="@student.ReferencePhotoPath"
@@ -157,16 +160,17 @@
 {
     <div class="dialog-backdrop">
         <section class="manual-dialog"
+                 @ref="_dialogElement"
                  role="dialog"
                  aria-modal="true"
                  aria-labelledby="manual-dialog-title"
-                 @onkeydown="HandleDialogKeyDown">
+                 @onkeydown="HandleDialogKeyDownAsync">
             <header class="dialog-heading">
                 <div>
                     <p>Manual attendance</p>
                     <h2 id="manual-dialog-title">Confirm student identity</h2>
                 </div>
-                <button class="dialog-close" type="button" aria-label="Cancel manual check-in" @onclick="CancelManualCheckIn">
+                <button class="dialog-close" type="button" aria-label="Cancel manual check-in" @onclick="CancelManualCheckInAsync">
                     <svg aria-hidden="true" viewBox="0 0 24 24">
                         <path d="m6 6 12 12M18 6 6 18" />
                     </svg>
@@ -187,8 +191,9 @@
             <div class="reason-field">
                 <label for="manual-reason">Reason for manual check-in <span aria-hidden="true">*</span></label>
                 <textarea id="manual-reason"
-                          @ref="_reasonInput"
                           autofocus
+                          required
+                          aria-required="true"
                           rows="3"
                           value="@_manualReason"
                           aria-describedby="manual-reason-help"
@@ -212,7 +217,7 @@
             </label>
 
             <footer class="dialog-actions">
-                <button class="cancel-check-in" type="button" @onclick="CancelManualCheckIn">Cancel</button>
+                <button class="cancel-check-in" type="button" @onclick="CancelManualCheckInAsync">Cancel</button>
                 <button class="confirm-check-in"
                         type="button"
                         disabled="@(!CanConfirm)"
@@ -227,20 +232,22 @@
 @code {
     private static readonly TimeSpan PhilippineOffset = TimeSpan.FromHours(8);
     private readonly CancellationTokenSource _timerCancellation = new();
-    private readonly PeriodicTimer _cutoffTimer = new(TimeSpan.FromMinutes(1));
+    private PeriodicTimer? _cutoffTimer;
     private AttendanceSessionSnapshot? _snapshot;
     private AssignedStudent? _selectedStudent;
-    private ElementReference _reasonInput;
+    private ElementReference _dialogElement;
     private Task? _timerTask;
     private string _searchText = string.Empty;
     private string _manualReason = string.Empty;
     private string? _pageError;
     private string? _checkInError;
     private string? _checkInResult;
+    private string? _checkInOutcomeClass;
     private bool _identityConfirmed;
     private bool _isLoading;
     private bool _isSubmitting;
-    private bool _focusReason;
+    private bool _openDialog;
+    private bool _disposed;
 
     [Parameter]
     public Guid SessionId { get; set; }
@@ -284,8 +291,10 @@
         _isLoading = true;
         try
         {
-            _snapshot = await AttendanceService.LoadAsync(SessionId, proctor.Id);
-            _snapshot = await AttendanceService.ApplyCutoffAsync(SessionId, proctor.Id);
+            var cancellationToken = _timerCancellation.Token;
+            _snapshot = await AttendanceService.LoadAsync(SessionId, proctor.Id, cancellationToken);
+            _snapshot = await AttendanceService.ApplyCutoffAsync(SessionId, proctor.Id, cancellationToken);
+            _cutoffTimer = new PeriodicTimer(TimeSpan.FromMinutes(1), TimeProvider);
             _timerTask = RunCutoffTimerAsync(_timerCancellation.Token);
         }
         catch (InvalidOperationException exception)
@@ -305,22 +314,27 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!_focusReason)
+        if (!_openDialog)
         {
             return;
         }
 
-        _focusReason = false;
-        await _reasonInput.FocusAsync();
+        _openDialog = false;
+        await JS.InvokeVoidAsync("philslaAttendanceDialog.open", _dialogElement);
     }
 
     private async Task RunCutoffTimerAsync(CancellationToken cancellationToken)
     {
         try
         {
-            while (await _cutoffTimer.WaitForNextTickAsync(cancellationToken))
+            while (_cutoffTimer is not null &&
+                   await _cutoffTimer.WaitForNextTickAsync(cancellationToken))
             {
-                await InvokeAsync(ApplyCutoffAsync);
+                await InvokeAsync(async () =>
+                {
+                    await ApplyCutoffAsync(cancellationToken);
+                    StateHasChanged();
+                });
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -328,7 +342,7 @@
         }
     }
 
-    private async Task ApplyCutoffAsync()
+    private async Task ApplyCutoffAsync(CancellationToken cancellationToken)
     {
         if (ProctorSession.Proctor is not { } proctor)
         {
@@ -337,8 +351,15 @@
 
         try
         {
-            _snapshot = await AttendanceService.ApplyCutoffAsync(SessionId, proctor.Id);
+            _snapshot = await AttendanceService.ApplyCutoffAsync(
+                SessionId,
+                proctor.Id,
+                cancellationToken);
             _pageError = null;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {
@@ -359,7 +380,8 @@
         _identityConfirmed = false;
         _checkInError = null;
         _checkInResult = null;
-        _focusReason = true;
+        _checkInOutcomeClass = null;
+        _openDialog = true;
     }
 
     private void ReasonChanged(ChangeEventArgs args) =>
@@ -382,33 +404,42 @@
         _isSubmitting = true;
         _checkInError = null;
         _checkInResult = null;
-        var wasAlreadyCheckedIn = EntryFor(_selectedStudent.Id).Status is
-            AttendanceStatus.Present or AttendanceStatus.Late;
         try
         {
-            _snapshot = await AttendanceService.CheckInAsync(
+            var result = await AttendanceService.CheckInWithResultAsync(
                 SessionId,
                 _selectedStudent.Id,
                 AttendanceCheckInMethod.Manual,
                 proctor.Id,
                 credentialId: null,
                 manualReason: _manualReason);
+            _snapshot = result.Snapshot;
             var updatedEntry = EntryFor(_selectedStudent.Id);
-            _checkInResult = wasAlreadyCheckedIn
-                ? "Already checked in"
-                : updatedEntry.Status switch
+            if (!result.WasCreated)
+            {
+                _checkInResult = "Already checked in";
+                _checkInOutcomeClass = "outcome-info";
+            }
+            else
+            {
+                (_checkInResult, _checkInOutcomeClass) = updatedEntry.Status switch
                 {
-                    AttendanceStatus.Present => "Checked in — Present",
-                    AttendanceStatus.Late => "Checked in — Late",
+                    AttendanceStatus.Present => ("Checked in — Present", "outcome-success"),
+                    AttendanceStatus.Late => ("Checked in — Late", "outcome-warning"),
                     _ => throw new InvalidOperationException("The attendance service returned an unsupported check-in status.")
                 };
-            CloseDialog();
+            }
+
+            await CloseDialogAsync();
         }
         catch (InvalidOperationException exception)
             when (exception.Message is "Check-in has not opened." or "Check-in closed.")
         {
             _checkInResult = exception.Message.TrimEnd('.');
-            CloseDialog();
+            _checkInOutcomeClass = exception.Message == "Check-in closed."
+                ? "outcome-error"
+                : "outcome-warning";
+            await CloseDialogAsync();
         }
         catch
         {
@@ -420,28 +451,29 @@
         }
     }
 
-    private void HandleDialogKeyDown(KeyboardEventArgs args)
+    private async Task HandleDialogKeyDownAsync(KeyboardEventArgs args)
     {
         if (args.Key == "Escape" && !_isSubmitting)
         {
-            CancelManualCheckIn();
+            await CancelManualCheckInAsync();
         }
     }
 
-    private void CancelManualCheckIn()
+    private async Task CancelManualCheckInAsync()
     {
         if (!_isSubmitting)
         {
-            CloseDialog();
+            await CloseDialogAsync();
         }
     }
 
-    private void CloseDialog()
+    private async Task CloseDialogAsync()
     {
+        await JS.InvokeVoidAsync("philslaAttendanceDialog.close");
         _selectedStudent = null;
         _manualReason = string.Empty;
         _identityConfirmed = false;
-        _focusReason = false;
+        _openDialog = false;
     }
 
     private static string FormatSchedule(AttendanceSessionDefinition session)
@@ -472,8 +504,14 @@
 
     public async ValueTask DisposeAsync()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         await _timerCancellation.CancelAsync();
-        _cutoffTimer.Dispose();
+        _cutoffTimer?.Dispose();
         if (_timerTask is not null)
         {
             await _timerTask;
