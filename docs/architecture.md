@@ -24,7 +24,7 @@ devices and the proctor machine.
 - .NET 10 MAUI Blazor Hybrid proctor workstation for Windows and Mac Catalyst
 - seeded, offline manual attendance for assigned sessions: Present/Late check-in,
   absence review, in-session proctor corrections before finalization, durable SQLite
-  WAL records, audit history, and audited finalization with read-only records
+  WAL records, audit history, and durable finalization with read-only records
 
 The current examination package, authorization delay, identity, and questions are
 development fixtures. Mobile QR scanning, signed permits, a LAN attendance
@@ -32,6 +32,10 @@ endpoint, cross-process candidate admission, and cloud attendance synchronizatio
 are not implemented. Rescheduling and post-session administrative correction
 workflows are also not implemented. Encryption, package signing, recording, cloud
 services, and production lockdown functionality are also not implemented.
+
+Successful and failed finalization operational-event logging is deferred. The
+current attendance slice persists finalization state durably but does not record a
+separate finalization operation event.
 
 Generated Android and iOS platform folders are present but are not project targets.
 

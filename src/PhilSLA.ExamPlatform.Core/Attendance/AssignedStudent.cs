@@ -4,4 +4,5 @@ public sealed record AssignedStudent(
     Guid Id,
     string StudentNumber,
     string FullName,
+    string SeatLabel,
     string ReferencePhotoPath);

@@ -90,6 +90,35 @@ public sealed class SqliteAttendanceStoreTests
     }
 
     [TestMethod]
+    public async Task SaveAsync_WithSameRecordVersion_IsRejectedWithoutChangingAggregate()
+    {
+        var store = new SqliteAttendanceStore(_databasePath);
+        var created = await store.CreateAsync(AttendanceTestData.CreateDefinition());
+        var malformed = AttendanceTestData.WithManualPresentAndCorrection(created) with
+        {
+            Version = created.Version
+        };
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            store.SaveAsync(malformed, created.Version));
+
+        AssertUnchanged(created, await store.LoadAsync(created.SessionId));
+    }
+
+    [TestMethod]
+    public async Task SaveAsync_WithSkippedRecordVersion_IsRejectedWithoutChangingAggregate()
+    {
+        var store = new SqliteAttendanceStore(_databasePath);
+        var created = await store.CreateAsync(AttendanceTestData.CreateDefinition());
+        var malformed = AttendanceTestData.WithManualPresentAndCorrection(created);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            store.SaveAsync(malformed, created.Version));
+
+        AssertUnchanged(created, await store.LoadAsync(created.SessionId));
+    }
+
+    [TestMethod]
     public async Task FinalizedTimestamp_SurvivesStoreRestart()
     {
         var first = new SqliteAttendanceStore(_databasePath);
@@ -348,6 +377,17 @@ public sealed class SqliteAttendanceStoreTests
             ],
             Version = created.Version + 1
         };
+    }
+
+    private static void AssertUnchanged(
+        AttendanceSessionRecord expected,
+        AttendanceSessionRecord? actual)
+    {
+        Assert.IsNotNull(actual);
+        Assert.AreEqual(expected.Version, actual.Version);
+        Assert.AreEqual(AttendanceStatus.Unmarked, actual.Entries[0].Status);
+        Assert.IsNull(actual.FinalizedAtUtc);
+        Assert.IsEmpty(actual.AuditEntries);
     }
 
     private static void DeleteIfPresent(string path)

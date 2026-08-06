@@ -61,7 +61,8 @@ internal sealed class InMemoryAttendanceStore : IAttendanceStore
         lock (_sync)
         {
             if (!_records.TryGetValue(record.SessionId, out var stored) ||
-                stored.Version != expectedVersion)
+                stored.Version != expectedVersion ||
+                (long)record.Version != (long)expectedVersion + 1)
             {
                 throw new InvalidOperationException("The attendance record was changed by another operation.");
             }

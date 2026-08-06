@@ -23,7 +23,7 @@ a proctor workstation attendance vertical slice:
 - .NET 10 MAUI Blazor Hybrid proctor workstation with temporary local authentication
 - seeded, offline manual attendance for assigned sessions, including Present/Late
   check-in, absence review, in-session proctor corrections before finalization,
-  durable SQLite records, audit history, and audited finalization with read-only
+  durable SQLite records, audit history, and durable finalization with read-only
   records
 
 The seeded examination and timed proctor authorization are development fixtures.
@@ -33,6 +33,10 @@ post-session administrative correction workflows are outside this workstation sl
 and remain planned work. Signed exam-package delivery, encrypted local storage,
 webcam recording, lockdown integration, and production security controls also
 remain planned.
+
+Successful and failed finalization operational-event logging is deferred. The
+current slice persists finalization state durably but does not record a separate
+finalization operation event.
 
 Android and iOS folders remain from the generated template, but Android and iOS are
 not project targets or supported platforms.

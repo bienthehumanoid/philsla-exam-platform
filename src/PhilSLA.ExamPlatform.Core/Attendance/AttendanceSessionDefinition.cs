@@ -77,6 +77,18 @@ public sealed record AttendanceSessionDefinition(
             throw new ArgumentException("Student IDs must be unique.", nameof(Students));
         }
 
+        if (students.Any(student => string.IsNullOrWhiteSpace(student.SeatLabel)))
+        {
+            throw new ArgumentException("Every assigned student must have a seat label.", nameof(Students));
+        }
+
+        if (students
+            .GroupBy(student => student.SeatLabel.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Any(group => group.Count() > 1))
+        {
+            throw new ArgumentException("Seat labels must be unique within a session.", nameof(Students));
+        }
+
         return new ReadOnlyCollection<AssignedStudent>(students.ToArray());
     }
 }

@@ -48,6 +48,7 @@ public sealed class AttendancePolicyTests
             AttendanceTestData.StudentId,
             "2026-0001",
             "Ana Reyes",
+            "A01",
             "photos/ana.jpg");
 
         Assert.Throws<ArgumentException>(() =>

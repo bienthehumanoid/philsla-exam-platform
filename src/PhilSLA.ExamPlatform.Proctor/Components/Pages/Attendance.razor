@@ -25,14 +25,32 @@
         else
         {
             <header class="attendance-heading">
-                <div>
+                <div class="attendance-title-group">
                     <a class="back-link" href="home">Back to assigned sessions</a>
-                    <h1>@_snapshot.Definition.Title</h1>
+                    <h1>Candidate Attendance</h1>
+                    <h2 class="session-heading">@_snapshot.Definition.Title</h2>
                     <p class="session-details">
                         @_snapshot.Definition.Room · @FormatSchedule(_snapshot.Definition)
                     </p>
                 </div>
-                <dl class="timing-summary" aria-label="Attendance timing">
+                <button class="end-session"
+                        type="button"
+                        disabled="@(TimeProvider.GetUtcNow() < _snapshot.Definition.EndsAtUtc ||
+                                    _snapshot.IsFinalized ||
+                                    _snapshot.PendingCount > 0 ||
+                                    _snapshot.UnmarkedCount > 0 ||
+                                    _isSubmitting)"
+                        @onclick="OpenFinalizationDialog">
+                    End session
+                </button>
+            </header>
+
+            <section class="session-context" aria-label="Session information and scanner availability">
+                <dl class="session-facts">
+                    <div>
+                        <dt>Exam set</dt>
+                        <dd>@_snapshot.Definition.ExamSet</dd>
+                    </div>
                     <div>
                         <dt>Check-in opens</dt>
                         <dd>@FormatLocalTime(_snapshot.CheckInOpensAtUtc)</dd>
@@ -42,13 +60,16 @@
                         <dd>@FormatLocalTime(_snapshot.CutoffAtUtc)</dd>
                     </div>
                 </dl>
-                <button class="end-session"
-                        type="button"
-                        disabled="@(TimeProvider.GetUtcNow() < _snapshot.Definition.EndsAtUtc || _snapshot.IsFinalized || _isSubmitting)"
-                        @onclick="OpenFinalizationDialog">
-                    End Session
-                </button>
-            </header>
+                <div class="scanner-control">
+                    <button class="connect-scanner"
+                            type="button"
+                            disabled
+                            aria-describedby="scanner-availability">
+                        Connect Mobile Scanner
+                    </button>
+                    <span id="scanner-availability" class="scanner-availability">Not available yet</span>
+                </div>
+            </section>
 
             @if (_pageError is not null)
             {
@@ -75,52 +96,59 @@
                 <div class="operation-result" role="status">@_operationResult</div>
             }
 
-            @if (_snapshot.IsFinalized)
+            @switch (CurrentPagePhase)
             {
-                <div id="attendance-finalized-status"
-                     class="finalized-banner"
-                     role="status"
-                     tabindex="-1">
-                    Attendance finalized
-                </div>
+                case AttendancePagePhase.NotOpen:
+                    <div class="attendance-state-banner phase-not-open" role="status">
+                        <strong>Check-in not open</strong>
+                        <span>Check-in opens at @FormatLocalTime(_snapshot.CheckInOpensAtUtc).</span>
+                    </div>
+                    break;
+                case AttendancePagePhase.AbsenceReview:
+                    <div class="attendance-state-banner phase-absence-review" role="status">
+                        <strong>Absence review required</strong>
+                        <span>Confirm every pending absence before ending the session.</span>
+                    </div>
+                    break;
+                case AttendancePagePhase.Finalized:
+                    <div id="attendance-finalized-status"
+                         class="attendance-state-banner finalized-banner phase-finalized"
+                         role="status"
+                         tabindex="-1">Attendance finalized — read-only</div>
+                    break;
+                default:
+                    <div class="attendance-state-banner phase-in-progress" role="status">
+                        <strong>Attendance in progress</strong>
+                        <span>The workstation determines Present or Late from the receipt time.</span>
+                    </div>
+                    break;
             }
 
-            <section class="operations-grid" aria-label="Attendance operations">
-                <div class="totals-panel">
-                    <h2>Live attendance</h2>
-                    <dl class="attendance-totals">
-                        <div class="attendance-total status-present">
-                            <dt>Present</dt>
-                            <dd>@_snapshot.PresentCount</dd>
-                        </div>
-                        <div class="attendance-total status-late">
-                            <dt>Late</dt>
-                            <dd>@_snapshot.LateCount</dd>
-                        </div>
-                        <div class="attendance-total status-absent">
-                            <dt>Absent</dt>
-                            <dd>@_snapshot.AbsentCount</dd>
-                        </div>
-                        <div class="attendance-total status-pending">
-                            <dt>Pending</dt>
-                            <dd>@_snapshot.PendingCount</dd>
-                        </div>
-                        <div class="attendance-total status-unmarked">
-                            <dt>Unmarked</dt>
-                            <dd>@_snapshot.UnmarkedCount</dd>
-                        </div>
-                    </dl>
-                </div>
-
-                <aside class="scanner-panel" aria-labelledby="scanner-title">
-                    <svg aria-hidden="true" viewBox="0 0 24 24">
-                        <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M8 12h8" />
-                    </svg>
-                    <div>
-                        <h2 id="scanner-title">Mobile scanner</h2>
-                        <p class="scanner-status">Mobile scanner not connected — use manual check-in</p>
-                    </div>
-                </aside>
+            <section class="attendance-summary" aria-label="Attendance totals">
+                <dl class="attendance-summary-card status-total">
+                    <dt>Total</dt>
+                    <dd>@_snapshot.Definition.Students.Count</dd>
+                </dl>
+                <dl class="attendance-summary-card status-present">
+                    <dt>Present</dt>
+                    <dd>@_snapshot.PresentCount</dd>
+                </dl>
+                <dl class="attendance-summary-card status-late">
+                    <dt>Late</dt>
+                    <dd>@_snapshot.LateCount</dd>
+                </dl>
+                <dl class="attendance-summary-card status-absent">
+                    <dt>Absent</dt>
+                    <dd>@_snapshot.AbsentCount</dd>
+                </dl>
+                <dl class="attendance-summary-card status-pending">
+                    <dt>Pending</dt>
+                    <dd>@_snapshot.PendingCount</dd>
+                </dl>
+                <dl class="attendance-summary-card status-unmarked">
+                    <dt>Unmarked</dt>
+                    <dd>@_snapshot.UnmarkedCount</dd>
+                </dl>
             </section>
 
             @if (!_snapshot.IsFinalized && DisplayedPendingStudents.Count > 0)
@@ -137,8 +165,8 @@
                     <button class="confirm-all-absent"
                             type="button"
                             disabled="@_isSubmitting"
-                            @onclick="ConfirmAllDisplayedAbsentAsync">
-                        @(_isSubmitting ? "Confirming..." : "Confirm all displayed as Absent")
+                            @onclick="OpenBulkAbsenceDialog">
+                        Confirm all displayed as Absent
                     </button>
                 </section>
             }
@@ -150,97 +178,141 @@
                         <h2 id="roster-title">Student roster</h2>
                         <p>@FilteredStudents.Count student@(FilteredStudents.Count == 1 ? string.Empty : "s") shown</p>
                     </div>
-                    <div class="search-field">
-                        <label for="student-search">Search by student number or name</label>
-                        <input id="student-search"
-                               type="search"
-                               value="@_searchText"
-                               @oninput="SearchChanged"
-                               placeholder="Search roster" />
+                    <div class="roster-controls">
+                        <div class="search-field">
+                            <label for="student-search">Search by student number or name</label>
+                            <input id="student-search"
+                                   type="search"
+                                   value="@_searchText"
+                                   @oninput="SearchChanged"
+                                   placeholder="Search roster" />
+                        </div>
+                        <div class="status-filter-field">
+                            <label for="attendance-status-filter">Attendance status</label>
+                            <select id="attendance-status-filter"
+                                    value="@(_statusFilter?.ToString() ?? string.Empty)"
+                                    @onchange="StatusFilterChanged">
+                                <option value="">All students</option>
+                                <option value="@nameof(AttendanceStatus.Unmarked)">Unmarked</option>
+                                <option value="@nameof(AttendanceStatus.Present)">Present</option>
+                                <option value="@nameof(AttendanceStatus.Late)">Late</option>
+                                <option value="@nameof(AttendanceStatus.PendingAbsence)">Pending</option>
+                                <option value="@nameof(AttendanceStatus.Absent)">Absent</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
                 @if (FilteredStudents.Count == 0)
                 {
-                    <p class="empty-roster">No students match this search.</p>
+                    <p class="empty-roster">No students match the current search and status filter.</p>
                 }
                 else
                 {
-                    <div class="roster-list">
-                        @foreach (var student in FilteredStudents)
-                        {
-                            var entry = EntryFor(student.Id);
-                            <article class="student-row">
-                                <button class="student-summary"
-                                        type="button"
-                                        id="attendance-student-@student.Id"
-                                        data-student-id="@student.Id"
-                                        disabled="@_snapshot.IsFinalized"
-                                        aria-label="@StudentActionLabel(student, entry)"
-                                        @onclick="() => OpenManualCheckIn(student)">
-                                    <img class="reference-photo"
-                                         src="@student.ReferencePhotoPath"
-                                         alt="Reference photo of @student.FullName"
-                                         width="56"
-                                         height="56" />
-                                    <span class="student-identity">
-                                        <strong>@student.FullName</strong>
-                                        <span>@student.StudentNumber</span>
-                                    </span>
-                                    <span class="status-cell">
+                    <table class="roster-table">
+                        <caption>Attendance roster for @_snapshot.Definition.Title</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Student</th>
+                                <th scope="col">Seat</th>
+                                <th scope="col">Attendance</th>
+                                <th scope="col">Check-in</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var student in FilteredStudents)
+                            {
+                                var entry = EntryFor(student.Id);
+                                <tr data-student-id="@student.Id">
+                                    <th class="student-cell" scope="row" data-label="Student">
+                                        <span class="student-identity">
+                                            <strong>@student.FullName</strong>
+                                            <span>@student.StudentNumber</span>
+                                        </span>
+                                    </th>
+                                    <td class="seat-cell" data-label="Seat">@student.SeatLabel</td>
+                                    <td class="status-cell" data-label="Attendance">
                                         <span class="student-status @StatusClass(entry.Status)">@StatusText(entry.Status)</span>
-                                        <span class="status-label">Status</span>
-                                    </span>
-                                    <span class="method-cell">
-                                        <span class="check-in-method">@MethodText(entry.CheckInMethod)</span>
-                                        <span class="status-label">Check-in method</span>
-                                    </span>
-                                    <span class="manual-action">@(_snapshot.IsFinalized ? "Read-only" : "Manual check-in")</span>
-                                </button>
-                                <div class="row-actions" aria-label="Attendance actions for @student.FullName">
-                                    @if (entry.Status == AttendanceStatus.PendingAbsence && !_snapshot.IsFinalized)
-                                    {
-                                        <button class="confirm-absent"
-                                                type="button"
-                                                disabled="@_isSubmitting"
-                                                @onclick="() => ConfirmAbsentAsync(student.Id)">
-                                            Confirm Absent
-                                        </button>
-                                    }
-                                    <button class="correct-attendance"
-                                            type="button"
-                                            disabled="@(_snapshot.IsFinalized || _isSubmitting)"
-                                            @onclick="() => OpenCorrection(student)">
-                                        Correct attendance
-                                    </button>
-                                </div>
-                            </article>
-                        }
-                    </div>
+                                    </td>
+                                    <td class="method-cell" data-label="Check-in">
+                                        @if (entry.CheckInMethod.HasValue)
+                                        {
+                                            <span class="check-in-method">@MethodText(entry.CheckInMethod)</span>
+                                            @if (entry.ReceivedAtUtc.HasValue)
+                                            {
+                                                <time datetime="@entry.ReceivedAtUtc.Value.ToString("O")">
+                                                    @FormatLocalTime(entry.ReceivedAtUtc.Value)
+                                                </time>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="check-in-method">—</span>
+                                        }
+                                    </td>
+                                    <td class="row-actions" data-label="Actions">
+                                        @if (!_snapshot.IsFinalized && entry.Status == AttendanceStatus.Unmarked)
+                                        {
+                                            <button class="check-in-attendance"
+                                                    type="button"
+                                                    disabled="@(!CanOpenCheckIn(entry) || _isSubmitting)"
+                                                    aria-label="Check in @student.FullName, student number @student.StudentNumber, seat @student.SeatLabel"
+                                                    @onclick="() => OpenManualCheckIn(student)">
+                                                Check in
+                                            </button>
+                                        }
+                                        @if (!_snapshot.IsFinalized && entry.Status == AttendanceStatus.PendingAbsence)
+                                        {
+                                            <button class="confirm-absent"
+                                                    type="button"
+                                                    disabled="@_isSubmitting"
+                                                    @onclick="() => ConfirmAbsentAsync(student.Id)">
+                                                Confirm absent
+                                            </button>
+                                        }
+                                        @if (!_snapshot.IsFinalized && entry.Status is AttendanceStatus.Present or AttendanceStatus.Late or AttendanceStatus.Absent)
+                                        {
+                                            <button class="correct-attendance"
+                                                    type="button"
+                                                    disabled="@_isSubmitting"
+                                                    @onclick="() => OpenCorrection(student)">
+                                                Correct
+                                            </button>
+                                        }
+                                        @if (_snapshot.IsFinalized)
+                                        {
+                                            <span class="read-only-label">Read-only</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 }
             </section>
 
             @if (_snapshot.AuditEntries.Count > 0)
             {
-                <section class="audit-history" aria-labelledby="audit-history-title">
-                    <div class="audit-heading">
-                        <h2 id="audit-history-title">Attendance history</h2>
+                <details class="attendance-history">
+                    <summary>Attendance history (@_snapshot.AuditEntries.Count)</summary>
+                    <div class="audit-history-content">
                         <p>Newest changes appear first.</p>
+                        <ol>
+                            @foreach (var audit in OrderedAuditEntries)
+                            {
+                                <li class="audit-entry">
+                                    <div>
+                                        <strong>@StudentName(audit.StudentId)</strong>
+                                        <span>@StatusText(audit.PriorStatus) to @StatusText(audit.NewStatus)</span>
+                                    </div>
+                                    <p>@audit.Reason</p>
+                                    <small>@ProctorName(audit.ProctorId) · @FormatLocalTimestamp(audit.OccurredAtUtc)</small>
+                                </li>
+                            }
+                        </ol>
                     </div>
-                    <ol>
-                        @foreach (var audit in OrderedAuditEntries)
-                        {
-                            <li class="audit-entry">
-                                <div>
-                                    <strong>@StudentName(audit.StudentId)</strong>
-                                    <span>@StatusText(audit.PriorStatus) to @StatusText(audit.NewStatus)</span>
-                                </div>
-                                <p>@audit.Reason</p>
-                                <small>@ProctorName(audit.ProctorId) · @FormatLocalTimestamp(audit.OccurredAtUtc)</small>
-                            </li>
-                        }
-                    </ol>
-                </section>
+                </details>
             }
         }
     </div>
@@ -398,6 +470,60 @@
     </div>
 }
 
+@if (_showBulkAbsenceDialog && _bulkAbsenceStudentIds.Count > 0)
+{
+    <div class="dialog-backdrop">
+        <section class="attendance-dialog bulk-absence-dialog"
+                 @ref="_dialogElement"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="bulk-absence-dialog-title"
+                 @onkeydown="HandleDialogKeyDownAsync">
+            <header class="dialog-heading">
+                <div>
+                    <p>Absence review</p>
+                    <h2 id="bulk-absence-dialog-title">
+                        Confirm @_bulkAbsenceStudentIds.Count displayed student@(_bulkAbsenceStudentIds.Count == 1 ? string.Empty : "s") as Absent?
+                    </h2>
+                </div>
+                <button class="dialog-close"
+                        type="button"
+                        aria-label="Cancel bulk absence confirmation"
+                        @onclick="CancelBulkAbsenceAsync">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="m6 6 12 12M18 6 6 18" />
+                    </svg>
+                </button>
+            </header>
+
+            <p class="bulk-absence-warning">
+                Only Pending students currently included by your search and status filter will change.
+            </p>
+
+            @if (_operationError is not null)
+            {
+                <div class="operation-error" role="alert">@_operationError</div>
+            }
+
+            <footer class="dialog-actions">
+                <button class="cancel-check-in cancel-bulk-absence"
+                        type="button"
+                        disabled="@_isSubmitting"
+                        @onclick="CancelBulkAbsenceAsync">
+                    Cancel
+                </button>
+                <button class="confirm-check-in confirm-bulk-absence"
+                        type="button"
+                        autofocus
+                        disabled="@_isSubmitting"
+                        @onclick="ConfirmDisplayedAbsencesAsync">
+                    @(_isSubmitting ? "Confirming..." : "Confirm as Absent")
+                </button>
+            </footer>
+        </section>
+    </div>
+}
+
 @if (_showFinalizationDialog && _snapshot is not null && !_snapshot.IsFinalized)
 {
     <div class="dialog-backdrop">
@@ -466,9 +592,19 @@
 
 @code {
     private static readonly TimeSpan PhilippineOffset = TimeSpan.FromHours(8);
+
+    private enum AttendancePagePhase
+    {
+        NotOpen,
+        InProgress,
+        AbsenceReview,
+        Finalized
+    }
+
     private readonly CancellationTokenSource _timerCancellation = new();
     private PeriodicTimer? _cutoffTimer;
     private AttendanceSessionSnapshot? _snapshot;
+    private IReadOnlyList<Guid> _bulkAbsenceStudentIds = [];
     private AssignedStudent? _selectedStudent;
     private AssignedStudent? _correctionStudent;
     private ElementReference _dialogElement;
@@ -484,12 +620,14 @@
     private string? _operationResult;
     private string? _correctionError;
     private string? _finalizationError;
+    private AttendanceStatus? _statusFilter;
     private AttendanceStatus _correctionStatus = AttendanceStatus.Absent;
     private bool _identityConfirmed;
     private bool _finalizationConfirmed;
     private bool _isLoading;
     private bool _isSubmitting;
     private bool _openDialog;
+    private bool _showBulkAbsenceDialog;
     private bool _showFinalizationDialog;
     private bool _focusFinalizedStatus;
     private bool _disposed;
@@ -506,6 +644,31 @@
         !_isSubmitting &&
         !string.IsNullOrWhiteSpace(_correctionReason);
 
+    private AttendancePagePhase CurrentPagePhase
+    {
+        get
+        {
+            if (_snapshot?.IsFinalized == true)
+            {
+                return AttendancePagePhase.Finalized;
+            }
+
+            var now = TimeProvider.GetUtcNow();
+            if (_snapshot is null || now < _snapshot.CheckInOpensAtUtc)
+            {
+                return AttendancePagePhase.NotOpen;
+            }
+
+            if (now >= _snapshot.CutoffAtUtc &&
+                (_snapshot.PendingCount > 0 || _snapshot.UnmarkedCount > 0))
+            {
+                return AttendancePagePhase.AbsenceReview;
+            }
+
+            return AttendancePagePhase.InProgress;
+        }
+    }
+
     private IReadOnlyList<AssignedStudent> FilteredStudents
     {
         get
@@ -515,16 +678,15 @@
                 return [];
             }
 
-            if (string.IsNullOrWhiteSpace(_searchText))
-            {
-                return _snapshot.Definition.Students;
-            }
-
             var search = _searchText.Trim();
             return _snapshot.Definition.Students
                 .Where(student =>
+                    string.IsNullOrWhiteSpace(search) ||
                     student.FullName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
                     student.StudentNumber.Contains(search, StringComparison.OrdinalIgnoreCase))
+                .Where(student =>
+                    !_statusFilter.HasValue ||
+                    EntryFor(student.Id).Status == _statusFilter.Value)
                 .ToArray();
         }
     }
@@ -651,9 +813,29 @@
     private void SearchChanged(ChangeEventArgs args) =>
         _searchText = args.Value?.ToString() ?? string.Empty;
 
+    private void StatusFilterChanged(ChangeEventArgs args)
+    {
+        _statusFilter = Enum.TryParse<AttendanceStatus>(args.Value?.ToString(), out var status)
+            ? status
+            : null;
+    }
+
+    private bool CanOpenCheckIn(AttendanceEntry entry)
+    {
+        if (_snapshot is null ||
+            _snapshot.IsFinalized ||
+            entry.Status != AttendanceStatus.Unmarked)
+        {
+            return false;
+        }
+
+        var now = TimeProvider.GetUtcNow();
+        return now >= _snapshot.CheckInOpensAtUtc && now < _snapshot.CutoffAtUtc;
+    }
+
     private void OpenManualCheckIn(AssignedStudent student)
     {
-        if (_snapshot?.IsFinalized != false)
+        if (_snapshot is null || !CanOpenCheckIn(EntryFor(student.Id)))
         {
             return;
         }
@@ -697,18 +879,38 @@
         }
     }
 
-    private async Task ConfirmAllDisplayedAbsentAsync()
+    private void OpenBulkAbsenceDialog()
     {
-        if (_snapshot?.IsFinalized != false ||
-            ProctorSession.Proctor is not { } proctor ||
-            _isSubmitting)
+        if (_snapshot?.IsFinalized != false || _isSubmitting)
         {
             return;
         }
 
-        var pendingStudentIds = DisplayedPendingStudents
+        _bulkAbsenceStudentIds = DisplayedPendingStudents
             .Select(student => student.Id)
             .ToArray();
+        if (_bulkAbsenceStudentIds.Count == 0)
+        {
+            return;
+        }
+
+        _showBulkAbsenceDialog = true;
+        _operationError = null;
+        _operationResult = null;
+        _openDialog = true;
+    }
+
+    private async Task ConfirmDisplayedAbsencesAsync()
+    {
+        if (_snapshot?.IsFinalized != false ||
+            ProctorSession.Proctor is not { } proctor ||
+            _isSubmitting ||
+            !_showBulkAbsenceDialog)
+        {
+            return;
+        }
+
+        var pendingStudentIds = _bulkAbsenceStudentIds.ToArray();
         _isSubmitting = true;
         _operationError = null;
         _operationResult = null;
@@ -725,9 +927,14 @@
             }
 
             _operationResult = $"{confirmedCount} absence{(confirmedCount == 1 ? string.Empty : "s")} confirmed.";
+            ClearDialogState();
+            await TryCloseDialogAsync();
         }
         catch
         {
+            _bulkAbsenceStudentIds = pendingStudentIds
+                .Where(studentId => EntryFor(studentId).Status == AttendanceStatus.PendingAbsence)
+                .ToArray();
             _operationError =
                 $"Bulk confirmation stopped after {confirmedCount} durable confirmation{(confirmedCount == 1 ? string.Empty : "s")}. Try again.";
         }
@@ -744,11 +951,14 @@
             return;
         }
 
-        _correctionStudent = student;
         var currentStatus = EntryFor(student.Id).Status;
-        _correctionStatus = currentStatus is AttendanceStatus.Present or AttendanceStatus.Late or AttendanceStatus.Absent
-            ? currentStatus
-            : AttendanceStatus.Absent;
+        if (currentStatus is AttendanceStatus.Unmarked or AttendanceStatus.PendingAbsence)
+        {
+            return;
+        }
+
+        _correctionStudent = student;
+        _correctionStatus = currentStatus;
         _correctionReason = string.Empty;
         _correctionError = null;
         _operationError = null;
@@ -793,7 +1003,7 @@
             _snapshot = correctedSnapshot;
             _operationResult = $"Attendance corrected for {studentName}.";
         }
-        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+        catch (AttendancePolicyException exception)
         {
             _correctionError = exception.Message;
         }
@@ -859,7 +1069,16 @@
         }
         catch (InvalidOperationException exception)
         {
-            _snapshot = await AttendanceService.LoadAsync(SessionId, proctor.Id);
+            try
+            {
+                _snapshot = await AttendanceService.LoadAsync(SessionId, proctor.Id);
+            }
+            catch
+            {
+                _finalizationError = "Attendance could not be finalized. Review the roster and try again.";
+                return;
+            }
+
             if (_snapshot.IsFinalized)
             {
                 ClearDialogState();
@@ -871,9 +1090,16 @@
                 .Where(student => EntryFor(student.Id).Status is AttendanceStatus.Unmarked or AttendanceStatus.PendingAbsence)
                 .Select(student => student.FullName)
                 .ToArray();
-            _finalizationError = unresolvedNames.Length == 0
-                ? exception.Message
-                : $"{exception.Message} Unresolved: {string.Join(", ", unresolvedNames)}.";
+            if (exception is AttendancePolicyException policyException)
+            {
+                _finalizationError = unresolvedNames.Length == 0
+                    ? policyException.Message
+                    : $"{policyException.Message} Unresolved: {string.Join(", ", unresolvedNames)}.";
+            }
+            else
+            {
+                _finalizationError = "Attendance could not be finalized. Review the roster and try again.";
+            }
         }
         catch
         {
@@ -933,8 +1159,7 @@
 
             await CloseDialogAsync();
         }
-        catch (InvalidOperationException exception)
-            when (exception.Message is "Check-in has not opened." or "Check-in closed.")
+        catch (AttendancePolicyException exception)
         {
             _checkInResult = exception.Message.TrimEnd('.');
             _checkInOutcomeClass = exception.Message == "Check-in closed."
@@ -976,6 +1201,14 @@
         }
     }
 
+    private async Task CancelBulkAbsenceAsync()
+    {
+        if (!_isSubmitting)
+        {
+            await CloseDialogAsync();
+        }
+    }
+
     private async Task CancelFinalizationAsync()
     {
         if (!_isSubmitting)
@@ -994,6 +1227,8 @@
     {
         _selectedStudent = null;
         _correctionStudent = null;
+        _bulkAbsenceStudentIds = [];
+        _showBulkAbsenceDialog = false;
         _showFinalizationDialog = false;
         _manualReason = string.Empty;
         _correctionReason = string.Empty;
@@ -1050,11 +1285,6 @@
         ProctorSession.Proctor is { } proctor && proctor.Id == proctorId
             ? $"{proctor.FirstName} {proctor.LastName}"
             : proctorId.ToString();
-
-    private string StudentActionLabel(AssignedStudent student, AttendanceEntry entry) =>
-        _snapshot?.IsFinalized == true
-            ? $"Read-only attendance for {student.FullName}, student number {student.StudentNumber}, final status {StatusText(entry.Status)}, check-in method {MethodText(entry.CheckInMethod)}"
-            : $"Manually check in {student.FullName}, student number {student.StudentNumber}, current status {StatusText(entry.Status)}, check-in method {MethodText(entry.CheckInMethod)}";
 
     private static string StatusText(AttendanceStatus status) => status switch
     {
