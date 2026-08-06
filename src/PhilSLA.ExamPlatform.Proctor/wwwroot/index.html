@@ -62,6 +62,11 @@
                 }
             };
 
+            const releaseDialog = () => {
+                dialog?.removeEventListener("keydown", trapFocus);
+                dialog = undefined;
+            };
+
             return {
                 open(element) {
                     trigger = document.activeElement;
@@ -71,8 +76,7 @@
                     (dialog.querySelector("[autofocus]") ?? focusableElements()[0])?.focus();
                 },
                 close() {
-                    dialog?.removeEventListener("keydown", trapFocus);
-                    dialog = undefined;
+                    releaseDialog();
                     requestAnimationFrame(() => {
                         const target = trigger?.isConnected
                             ? trigger
@@ -80,6 +84,14 @@
                         target?.focus();
                         trigger = undefined;
                         triggerId = undefined;
+                    });
+                },
+                closeTo(targetId) {
+                    releaseDialog();
+                    trigger = undefined;
+                    triggerId = undefined;
+                    requestAnimationFrame(() => {
+                        document.getElementById(targetId)?.focus();
                     });
                 }
             };

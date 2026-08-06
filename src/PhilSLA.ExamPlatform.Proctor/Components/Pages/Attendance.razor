@@ -77,7 +77,12 @@
 
             @if (_snapshot.IsFinalized)
             {
-                <div class="finalized-banner" role="status">Attendance finalized</div>
+                <div id="attendance-finalized-status"
+                     class="finalized-banner"
+                     role="status"
+                     tabindex="-1">
+                    Attendance finalized
+                </div>
             }
 
             <section class="operations-grid" aria-label="Attendance operations">
@@ -140,7 +145,7 @@
 
             <section class="roster-panel @(_snapshot.IsFinalized ? "read-only" : null)"
                      aria-labelledby="roster-title"
-                     aria-readonly="@_snapshot.IsFinalized.ToString().ToLowerInvariant()">
+                     aria-disabled="@_snapshot.IsFinalized.ToString().ToLowerInvariant()">
                 <div class="roster-heading">
                     <div>
                         <h2 id="roster-title">Student roster</h2>
@@ -172,7 +177,7 @@
                                         id="attendance-student-@student.Id"
                                         data-student-id="@student.Id"
                                         disabled="@_snapshot.IsFinalized"
-                                        aria-label="Manually check in @student.FullName, student number @student.StudentNumber, current status @StatusText(entry.Status), check-in method @MethodText(entry.CheckInMethod)"
+                                        aria-label="@StudentActionLabel(student, entry)"
                                         @onclick="() => OpenManualCheckIn(student)">
                                     <img class="reference-photo"
                                          src="@student.ReferencePhotoPath"
@@ -394,7 +399,7 @@
     </div>
 }
 
-@if (_showFinalizationDialog && _snapshot is not null)
+@if (_showFinalizationDialog && _snapshot is not null && !_snapshot.IsFinalized)
 {
     <div class="dialog-backdrop">
         <section class="attendance-dialog finalization-dialog"
@@ -441,6 +446,7 @@
                 <input id="finalization-confirmed"
                        type="checkbox"
                        autofocus
+                       disabled="@_snapshot.IsFinalized"
                        checked="@_finalizationConfirmed"
                        @onchange="FinalizationConfirmationChanged" />
                 <span>I reviewed the Present, Late, and Absent totals and confirm this attendance record is complete.</span>
@@ -450,7 +456,7 @@
                 <button class="cancel-check-in cancel-finalization" type="button" @onclick="CancelFinalizationAsync">Cancel</button>
                 <button class="confirm-check-in finalize-attendance"
                         type="button"
-                        disabled="@(!_finalizationConfirmed || _isSubmitting)"
+                        disabled="@(!_finalizationConfirmed || _isSubmitting || _snapshot.IsFinalized)"
                         @onclick="FinalizeAttendanceAsync">
                     @(_isSubmitting ? "Finalizing..." : "Finalize attendance")
                 </button>
@@ -486,6 +492,7 @@
     private bool _isSubmitting;
     private bool _openDialog;
     private bool _showFinalizationDialog;
+    private bool _focusFinalizedStatus;
     private bool _disposed;
 
     [Parameter]
@@ -574,13 +581,25 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_focusFinalizedStatus)
+        {
+            _focusFinalizedStatus = false;
+            await TryCloseDialogToAsync("attendance-finalized-status");
+        }
+
         if (!_openDialog)
         {
             return;
         }
 
         _openDialog = false;
-        await JS.InvokeVoidAsync("philslaAttendanceDialog.open", _dialogElement);
+        try
+        {
+            await JS.InvokeVoidAsync("philslaAttendanceDialog.open", _dialogElement);
+        }
+        catch (Exception exception) when (IsFocusInteropFailure(exception))
+        {
+        }
     }
 
     private async Task RunCutoffTimerAsync(CancellationToken cancellationToken)
@@ -669,9 +688,9 @@
                 proctor.Id);
             _operationResult = $"{StudentName(studentId)} confirmed Absent.";
         }
-        catch (Exception exception)
+        catch
         {
-            _operationError = $"Absence could not be confirmed. {exception.Message}";
+            _operationError = "Absence could not be confirmed. Try again.";
         }
         finally
         {
@@ -708,10 +727,10 @@
 
             _operationResult = $"{confirmedCount} absence{(confirmedCount == 1 ? string.Empty : "s")} confirmed.";
         }
-        catch (Exception exception)
+        catch
         {
             _operationError =
-                $"Bulk confirmation stopped after {confirmedCount} durable confirmation{(confirmedCount == 1 ? string.Empty : "s")}. {exception.Message}";
+                $"Bulk confirmation stopped after {confirmedCount} durable confirmation{(confirmedCount == 1 ? string.Empty : "s")}. Try again.";
         }
         finally
         {
@@ -762,17 +781,18 @@
 
         _isSubmitting = true;
         _correctionError = null;
+        AttendanceSessionSnapshot? correctedSnapshot = null;
         try
         {
             var studentName = _correctionStudent.FullName;
-            _snapshot = await AttendanceService.CorrectAsync(
+            correctedSnapshot = await AttendanceService.CorrectAsync(
                 SessionId,
                 _correctionStudent.Id,
                 _correctionStatus,
                 _correctionReason,
                 proctor.Id);
+            _snapshot = correctedSnapshot;
             _operationResult = $"Attendance corrected for {studentName}.";
-            await CloseDialogAsync();
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
@@ -785,6 +805,12 @@
         finally
         {
             _isSubmitting = false;
+        }
+
+        if (correctedSnapshot is not null)
+        {
+            ClearDialogState();
+            await TryCloseDialogAsync();
         }
     }
 
@@ -818,7 +844,8 @@
         if (!_finalizationConfirmed ||
             !_showFinalizationDialog ||
             ProctorSession.Proctor is not { } proctor ||
-            _isSubmitting)
+            _isSubmitting ||
+            _snapshot?.IsFinalized != false)
         {
             return;
         }
@@ -828,11 +855,19 @@
         try
         {
             _snapshot = await AttendanceService.FinalizeAsync(SessionId, proctor.Id);
-            await CloseDialogAsync();
+            ClearDialogState();
+            _focusFinalizedStatus = true;
         }
         catch (InvalidOperationException exception)
         {
             _snapshot = await AttendanceService.LoadAsync(SessionId, proctor.Id);
+            if (_snapshot.IsFinalized)
+            {
+                ClearDialogState();
+                _focusFinalizedStatus = true;
+                return;
+            }
+
             var unresolvedNames = _snapshot.Definition.Students
                 .Where(student => EntryFor(student.Id).Status is AttendanceStatus.Unmarked or AttendanceStatus.PendingAbsence)
                 .Select(student => student.FullName)
@@ -952,7 +987,12 @@
 
     private async Task CloseDialogAsync()
     {
-        await JS.InvokeVoidAsync("philslaAttendanceDialog.close");
+        ClearDialogState();
+        await TryCloseDialogAsync();
+    }
+
+    private void ClearDialogState()
+    {
         _selectedStudent = null;
         _correctionStudent = null;
         _showFinalizationDialog = false;
@@ -964,6 +1004,31 @@
         _finalizationError = null;
         _openDialog = false;
     }
+
+    private async Task TryCloseDialogAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("philslaAttendanceDialog.close");
+        }
+        catch (Exception exception) when (IsFocusInteropFailure(exception))
+        {
+        }
+    }
+
+    private async Task TryCloseDialogToAsync(string targetId)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("philslaAttendanceDialog.closeTo", targetId);
+        }
+        catch (Exception exception) when (IsFocusInteropFailure(exception))
+        {
+        }
+    }
+
+    private static bool IsFocusInteropFailure(Exception exception) =>
+        exception is JSException or JSDisconnectedException;
 
     private static string FormatSchedule(AttendanceSessionDefinition session)
     {
@@ -986,6 +1051,11 @@
         ProctorSession.Proctor is { } proctor && proctor.Id == proctorId
             ? $"{proctor.FirstName} {proctor.LastName}"
             : proctorId.ToString();
+
+    private string StudentActionLabel(AssignedStudent student, AttendanceEntry entry) =>
+        _snapshot?.IsFinalized == true
+            ? $"Read-only attendance for {student.FullName}, student number {student.StudentNumber}, final status {StatusText(entry.Status)}, check-in method {MethodText(entry.CheckInMethod)}"
+            : $"Manually check in {student.FullName}, student number {student.StudentNumber}, current status {StatusText(entry.Status)}, check-in method {MethodText(entry.CheckInMethod)}";
 
     private static string StatusText(AttendanceStatus status) => status switch
     {

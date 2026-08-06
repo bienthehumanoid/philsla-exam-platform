@@ -390,8 +390,30 @@ public sealed class AttendancePageTests
                     .ToArray());
             StringAssert.Contains(
                 component.Find(".operation-error").TextContent,
-                "stopped after 1 durable confirmation");
+                "Bulk confirmation stopped after 1 durable confirmation. Try again.");
+            Assert.IsFalse(component.Find(".operation-error").TextContent.Contains(
+                "Synthetic bulk persistence failure",
+                StringComparison.Ordinal));
         });
+    }
+
+    [TestMethod]
+    public void IndividualAbsenceInfrastructureFailure_ShowsSafeGenericCopy()
+    {
+        var store = new FailOnSaveCallAttendanceStore(failOnSaveCall: 2);
+        using var context = CreateAttendanceContext(
+            AttendanceTestData.StartsAtUtc.AddMinutes(16),
+            authenticated: true,
+            store: store);
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForElement(".confirm-absent").Click();
+
+        component.WaitForAssertion(() =>
+            Assert.AreEqual(
+                "Absence could not be confirmed. Try again.",
+                component.Find(".operation-error").TextContent.Trim()));
     }
 
     [TestMethod]
@@ -435,6 +457,46 @@ public sealed class AttendancePageTests
             StringAssert.Contains(newestAudit.TextContent, "Arrival time was copied incorrectly.");
             StringAssert.Contains(newestAudit.TextContent, "Santiago Reyes");
             StringAssert.Contains(newestAudit.TextContent, "03:50 PM");
+        });
+    }
+
+    [TestMethod]
+    public async Task CorrectionSuccess_RemainsDurableWhenFocusTeardownFails()
+    {
+        var provider = new InMemoryAttendanceSessionProvider([AttendanceTestData.CreateDefinition()]);
+        var store = new InMemoryAttendanceStore();
+        var timeProvider = new TestTimeProvider(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+        var service = new AttendanceService(provider, store, timeProvider);
+        await service.CheckInAsync(
+            SessionId,
+            AttendanceTestData.StudentId,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Identity confirmed against school ID.");
+        using var context = CreateAttendanceContext(
+            timeProvider.GetUtcNow(),
+            authenticated: true,
+            provider: provider,
+            store: store,
+            timeProvider: timeProvider);
+        context.JSInterop
+            .SetupVoid("philslaAttendanceDialog.close")
+            .SetException(new JSException("Synthetic focus teardown failure."));
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForElement(".correct-attendance").Click();
+        component.Find("#correction-status").Change(nameof(AttendanceStatus.Late));
+        component.Find("#correction-reason").Change("Arrival time was copied incorrectly.");
+        component.Find(".save-correction").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.AreEqual("Late", component.Find(".student-status").TextContent.Trim());
+            Assert.HasCount(0, component.FindAll(".correction-dialog"));
+            Assert.HasCount(0, component.FindAll(".correction-error"));
+            StringAssert.Contains(component.Find(".operation-result").TextContent, "Attendance corrected");
         });
     }
 
@@ -503,12 +565,133 @@ public sealed class AttendancePageTests
             Assert.AreEqual(
                 "Attendance finalized",
                 component.Find(".finalized-banner").TextContent.Trim());
-            Assert.AreEqual("true", component.Find(".roster-panel").GetAttribute("aria-readonly"));
+            Assert.AreEqual("true", component.Find(".roster-panel").GetAttribute("aria-disabled"));
+            Assert.IsFalse(component.Find(".roster-panel").HasAttribute("aria-readonly"));
             Assert.IsTrue(component.Find("[data-student-id]").HasAttribute("disabled"));
+            StringAssert.StartsWith(
+                component.Find("[data-student-id]").GetAttribute("aria-label"),
+                "Read-only attendance for");
             Assert.IsTrue(component.Find(".correct-attendance").HasAttribute("disabled"));
             Assert.HasCount(0, component.FindAll(".confirm-absent"));
             Assert.IsTrue(context.JSInterop.Invocations.Any(invocation =>
-                invocation.Identifier == "philslaAttendanceDialog.close"));
+                invocation.Identifier == "philslaAttendanceDialog.closeTo" &&
+                invocation.Arguments.Single()?.ToString() == "attendance-finalized-status"));
+        });
+    }
+
+    [TestMethod]
+    public async Task FinalizationSuccess_RemainsReadOnlyWhenFocusMoveFails()
+    {
+        var provider = new InMemoryAttendanceSessionProvider([AttendanceTestData.CreateDefinition()]);
+        var store = new InMemoryAttendanceStore();
+        var timeProvider = new TestTimeProvider(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+        var service = new AttendanceService(provider, store, timeProvider);
+        await service.CheckInAsync(
+            SessionId,
+            AttendanceTestData.StudentId,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Identity confirmed against school ID.");
+        timeProvider.SetUtcNow(AttendanceTestData.StartsAtUtc.AddHours(2).AddMinutes(1));
+        using var context = CreateAttendanceContext(
+            timeProvider.GetUtcNow(),
+            authenticated: true,
+            provider: provider,
+            store: store,
+            timeProvider: timeProvider);
+        context.JSInterop
+            .SetupVoid("philslaAttendanceDialog.closeTo", "attendance-finalized-status")
+            .SetException(new JSException("Synthetic final focus failure."));
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForElement(".end-session").Click();
+        component.Find("#finalization-confirmed").Change(true);
+        component.Find(".finalize-attendance").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.AreEqual("Attendance finalized", component.Find(".finalized-banner").TextContent.Trim());
+            Assert.HasCount(0, component.FindAll(".finalization-dialog"));
+            Assert.IsTrue(component.Find(".end-session").HasAttribute("disabled"));
+            Assert.IsTrue(component.Find("[data-student-id]").HasAttribute("disabled"));
+        });
+    }
+
+    [TestMethod]
+    public async Task FinalizationRejection_WithConcurrentPendingStudent_StaysOpenAndNamesStudent()
+    {
+        var provider = new InMemoryAttendanceSessionProvider([AttendanceTestData.CreateDefinition()]);
+        var store = new FinalizationRaceAttendanceStore();
+        var timeProvider = new TestTimeProvider(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+        var service = new AttendanceService(provider, store, timeProvider);
+        await service.CheckInAsync(
+            SessionId,
+            AttendanceTestData.StudentId,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Identity confirmed against school ID.");
+        timeProvider.SetUtcNow(AttendanceTestData.StartsAtUtc.AddHours(2).AddMinutes(1));
+        using var context = CreateAttendanceContext(
+            timeProvider.GetUtcNow(),
+            authenticated: true,
+            provider: provider,
+            store: store,
+            timeProvider: timeProvider);
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForElement(".end-session").Click();
+        store.RejectFinalizationWithPendingStudent();
+        component.Find("#finalization-confirmed").Change(true);
+        component.Find(".finalize-attendance").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.HasCount(1, component.FindAll(".finalization-dialog"));
+            StringAssert.Contains(component.Find(".finalization-error").TextContent, "Confirm all pending absences");
+            StringAssert.Contains(component.Find(".finalization-error").TextContent, "Ana Reyes");
+            Assert.IsFalse(component.Find(".finalize-attendance").HasAttribute("disabled"));
+        });
+    }
+
+    [TestMethod]
+    public async Task FinalizationRejection_WhenConcurrentFinalizationWon_ClosesReadOnly()
+    {
+        var provider = new InMemoryAttendanceSessionProvider([AttendanceTestData.CreateDefinition()]);
+        var store = new FinalizationRaceAttendanceStore();
+        var timeProvider = new TestTimeProvider(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+        var service = new AttendanceService(provider, store, timeProvider);
+        await service.CheckInAsync(
+            SessionId,
+            AttendanceTestData.StudentId,
+            AttendanceCheckInMethod.Manual,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: "Identity confirmed against school ID.");
+        timeProvider.SetUtcNow(AttendanceTestData.StartsAtUtc.AddHours(2).AddMinutes(1));
+        using var context = CreateAttendanceContext(
+            timeProvider.GetUtcNow(),
+            authenticated: true,
+            provider: provider,
+            store: store,
+            timeProvider: timeProvider);
+        var component = context.Render<AttendanceComponent>(
+            parameters => parameters.Add(page => page.SessionId, SessionId));
+
+        component.WaitForElement(".end-session").Click();
+        store.RejectFinalizationAsAlreadyFinalized(timeProvider.GetUtcNow());
+        component.Find("#finalization-confirmed").Change(true);
+        component.Find(".finalize-attendance").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.HasCount(0, component.FindAll(".finalization-dialog"));
+            Assert.AreEqual("Attendance finalized", component.Find(".finalized-banner").TextContent.Trim());
+            Assert.IsTrue(component.Find(".end-session").HasAttribute("disabled"));
+            Assert.IsTrue(component.Find("[data-student-id]").HasAttribute("disabled"));
         });
     }
 
@@ -733,6 +916,56 @@ public sealed class AttendancePageTests
             }
 
             return _inner.SaveAsync(record, expectedVersion, cancellationToken);
+        }
+    }
+
+    private sealed class FinalizationRaceAttendanceStore : IAttendanceStore
+    {
+        private readonly InMemoryAttendanceStore _inner = new();
+        private AttendanceSessionRecord? _raceRecord;
+
+        public async Task<AttendanceSessionRecord?> LoadAsync(
+            Guid sessionId,
+            CancellationToken cancellationToken = default)
+        {
+            if (_raceRecord is not null)
+            {
+                return _raceRecord with
+                {
+                    Entries = _raceRecord.Entries.ToArray(),
+                    AuditEntries = _raceRecord.AuditEntries.ToArray()
+                };
+            }
+
+            return await _inner.LoadAsync(sessionId, cancellationToken);
+        }
+
+        public Task<AttendanceSessionRecord> CreateAsync(
+            AttendanceSessionDefinition definition,
+            CancellationToken cancellationToken = default) =>
+            _inner.CreateAsync(definition, cancellationToken);
+
+        public Task<AttendanceSessionRecord> SaveAsync(
+            AttendanceSessionRecord record,
+            int expectedVersion,
+            CancellationToken cancellationToken = default) =>
+            _inner.SaveAsync(record, expectedVersion, cancellationToken);
+
+        public void RejectFinalizationWithPendingStudent()
+        {
+            var record = _inner.LoadAsync(SessionId).GetAwaiter().GetResult()!;
+            _raceRecord = record with
+            {
+                Entries = record.Entries
+                    .Select(entry => entry with { Status = AttendanceStatus.PendingAbsence })
+                    .ToArray()
+            };
+        }
+
+        public void RejectFinalizationAsAlreadyFinalized(DateTimeOffset finalizedAtUtc)
+        {
+            var record = _inner.LoadAsync(SessionId).GetAwaiter().GetResult()!;
+            _raceRecord = record with { FinalizedAtUtc = finalizedAtUtc };
         }
     }
 
