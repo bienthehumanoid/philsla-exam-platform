@@ -9,6 +9,12 @@ public sealed record AttendanceAuditEntry(
     Guid ProctorId,
     DateTimeOffset OccurredAtUtc)
 {
-    public DateTimeOffset OccurredAtUtc { get; init; } =
+    private DateTimeOffset _occurredAtUtc =
         AttendanceTimestamp.RequireUtc(OccurredAtUtc, nameof(OccurredAtUtc));
+
+    public DateTimeOffset OccurredAtUtc
+    {
+        get => _occurredAtUtc;
+        init => _occurredAtUtc = AttendanceTimestamp.RequireUtc(value, nameof(OccurredAtUtc));
+    }
 }

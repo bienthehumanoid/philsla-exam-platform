@@ -9,6 +9,12 @@ public sealed record AttendanceEntry(
     string? ManualReason,
     Guid? ConfirmedByProctorId)
 {
-    public DateTimeOffset? ReceivedAtUtc { get; init; } =
+    private DateTimeOffset? _receivedAtUtc =
         AttendanceTimestamp.RequireUtc(ReceivedAtUtc, nameof(ReceivedAtUtc));
+
+    public DateTimeOffset? ReceivedAtUtc
+    {
+        get => _receivedAtUtc;
+        init => _receivedAtUtc = AttendanceTimestamp.RequireUtc(value, nameof(ReceivedAtUtc));
+    }
 }

@@ -102,4 +102,51 @@ public sealed class AttendanceModelTests
         Assert.Throws<NotSupportedException>(() => ((IList<AttendanceEntry>)record.Entries)[0] = entry with { Status = AttendanceStatus.Present });
         Assert.Throws<NotSupportedException>(() => ((IList<AttendanceEntry>)snapshot.Entries)[0] = entry with { Status = AttendanceStatus.Late });
     }
+
+    [TestMethod]
+    public void WithExpressions_RejectNonUtcAuthoritativeTimestamps()
+    {
+        var nonUtc = new DateTimeOffset(2026, 8, 6, 8, 0, 0, TimeSpan.FromHours(8));
+        var definition = AttendanceTestData.CreateDefinition();
+        var entry = new AttendanceEntry(AttendanceTestData.StudentId, AttendanceStatus.Unmarked, null, null, null, null, null);
+        var audit = new AttendanceAuditEntry(Guid.NewGuid(), AttendanceTestData.StudentId, AttendanceStatus.Unmarked, AttendanceStatus.Present, "Check-in", AttendanceTestData.ProctorId, AttendanceTestData.StartsAtUtc);
+        var record = new AttendanceSessionRecord(definition.Id, [entry], [audit], null, 0);
+
+        Assert.Throws<ArgumentException>(() => definition with { StartsAtUtc = nonUtc });
+        Assert.Throws<ArgumentException>(() => definition with { EndsAtUtc = nonUtc });
+        Assert.Throws<ArgumentException>(() => entry with { ReceivedAtUtc = nonUtc });
+        Assert.Throws<ArgumentException>(() => audit with { OccurredAtUtc = nonUtc });
+        Assert.Throws<ArgumentException>(() => record with { FinalizedAtUtc = nonUtc });
+    }
+
+    [TestMethod]
+    public void WithExpressions_DefensivelyWrapMutableCollections()
+    {
+        var student = new AssignedStudent(AttendanceTestData.StudentId, "2026-0001", "Ana Reyes", "photos/ana.jpg");
+        var definition = AttendanceTestData.CreateDefinition([student]);
+        var entry = new AttendanceEntry(student.Id, AttendanceStatus.Unmarked, null, null, null, null, null);
+        var record = new AttendanceSessionRecord(definition.Id, [entry], [], null, 0);
+        var replacementStudents = new[] { student };
+        var replacementEntries = new[] { entry };
+        var replacementAuditEntries = Array.Empty<AttendanceAuditEntry>();
+
+        var updatedDefinition = definition with { Students = replacementStudents };
+        var updatedRecord = record with
+        {
+            Entries = replacementEntries,
+            AuditEntries = replacementAuditEntries
+        };
+        var snapshot = new AttendanceSessionSnapshot(updatedDefinition, updatedRecord);
+
+        replacementStudents[0] = student with { FullName = "Changed outside model" };
+        replacementEntries[0] = entry with { Status = AttendanceStatus.Present };
+
+        Assert.IsFalse(updatedDefinition.Students is AssignedStudent[]);
+        Assert.IsFalse(updatedRecord.Entries is AttendanceEntry[]);
+        Assert.IsFalse(updatedRecord.AuditEntries is AttendanceAuditEntry[]);
+        Assert.AreEqual("Ana Reyes", updatedDefinition.Students[0].FullName);
+        Assert.AreEqual(AttendanceStatus.Unmarked, updatedRecord.Entries[0].Status);
+        Assert.IsFalse(snapshot.Entries is AttendanceEntry[]);
+        Assert.IsFalse(snapshot.AuditEntries is AttendanceAuditEntry[]);
+    }
 }

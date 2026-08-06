@@ -12,6 +12,11 @@ public sealed record AttendancePolicy(
     TimeSpan CheckInOpensBeforeStart,
     TimeSpan LateGracePeriod)
 {
+    private TimeSpan _checkInOpensBeforeStart =
+        RequirePositive(CheckInOpensBeforeStart, nameof(CheckInOpensBeforeStart));
+    private TimeSpan _lateGracePeriod =
+        RequirePositive(LateGracePeriod, nameof(LateGracePeriod));
+
     public AttendanceCheckInDecision Classify(
         DateTimeOffset startsAtUtc,
         DateTimeOffset receivedAtUtc)
@@ -34,11 +39,17 @@ public sealed record AttendancePolicy(
             : AttendanceCheckInDecision.Closed;
     }
 
-    public TimeSpan CheckInOpensBeforeStart { get; init; } =
-        RequirePositive(CheckInOpensBeforeStart, nameof(CheckInOpensBeforeStart));
+    public TimeSpan CheckInOpensBeforeStart
+    {
+        get => _checkInOpensBeforeStart;
+        init => _checkInOpensBeforeStart = RequirePositive(value, nameof(CheckInOpensBeforeStart));
+    }
 
-    public TimeSpan LateGracePeriod { get; init; } =
-        RequirePositive(LateGracePeriod, nameof(LateGracePeriod));
+    public TimeSpan LateGracePeriod
+    {
+        get => _lateGracePeriod;
+        init => _lateGracePeriod = RequirePositive(value, nameof(LateGracePeriod));
+    }
 
     private static TimeSpan RequirePositive(TimeSpan value, string parameterName) =>
         value > TimeSpan.Zero

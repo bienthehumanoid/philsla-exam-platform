@@ -13,17 +13,47 @@ public sealed record AttendanceSessionDefinition(
     AttendancePolicy Policy,
     IReadOnlyList<AssignedStudent> Students)
 {
-    public DateTimeOffset StartsAtUtc { get; init; } =
+    private DateTimeOffset _startsAtUtc =
         AttendanceTimestamp.RequireUtc(StartsAtUtc, nameof(StartsAtUtc));
-
-    public DateTimeOffset EndsAtUtc { get; init; } =
+    private DateTimeOffset _endsAtUtc =
         RequireUtcEndAfterStart(StartsAtUtc, EndsAtUtc);
-
-    public AttendancePolicy Policy { get; init; } =
+    private AttendancePolicy _policy =
         Policy ?? throw new ArgumentNullException(nameof(Policy));
-
-    public IReadOnlyList<AssignedStudent> Students { get; init; } =
+    private IReadOnlyList<AssignedStudent> _students =
         ToReadOnlyStudents(Students);
+
+    public DateTimeOffset StartsAtUtc
+    {
+        get => _startsAtUtc;
+        init
+        {
+            var startsAtUtc = AttendanceTimestamp.RequireUtc(value, nameof(StartsAtUtc));
+            if (_endsAtUtc != default && startsAtUtc >= _endsAtUtc)
+            {
+                throw new ArgumentException("The session must end after it starts.", nameof(StartsAtUtc));
+            }
+
+            _startsAtUtc = startsAtUtc;
+        }
+    }
+
+    public DateTimeOffset EndsAtUtc
+    {
+        get => _endsAtUtc;
+        init => _endsAtUtc = RequireUtcEndAfterStart(_startsAtUtc, value);
+    }
+
+    public AttendancePolicy Policy
+    {
+        get => _policy;
+        init => _policy = value ?? throw new ArgumentNullException(nameof(Policy));
+    }
+
+    public IReadOnlyList<AssignedStudent> Students
+    {
+        get => _students;
+        init => _students = ToReadOnlyStudents(value);
+    }
 
     private static DateTimeOffset RequireUtcEndAfterStart(
         DateTimeOffset startsAtUtc,
