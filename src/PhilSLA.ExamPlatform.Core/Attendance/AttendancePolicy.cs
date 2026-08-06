@@ -8,34 +8,17 @@ public enum AttendanceCheckInDecision
     Closed
 }
 
-public sealed record AttendancePolicy
+public sealed record AttendancePolicy(
+    TimeSpan CheckInOpensBeforeStart,
+    TimeSpan LateGracePeriod)
 {
-    public AttendancePolicy(
-        TimeSpan checkInOpensBeforeStart,
-        TimeSpan lateGracePeriod)
-    {
-        if (checkInOpensBeforeStart <= TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(checkInOpensBeforeStart));
-        }
-
-        if (lateGracePeriod <= TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(lateGracePeriod));
-        }
-
-        CheckInOpensBeforeStart = checkInOpensBeforeStart;
-        LateGracePeriod = lateGracePeriod;
-    }
-
-    public TimeSpan CheckInOpensBeforeStart { get; init; }
-
-    public TimeSpan LateGracePeriod { get; init; }
-
     public AttendanceCheckInDecision Classify(
         DateTimeOffset startsAtUtc,
         DateTimeOffset receivedAtUtc)
     {
+        AttendanceTimestamp.RequireUtc(startsAtUtc, nameof(startsAtUtc));
+        AttendanceTimestamp.RequireUtc(receivedAtUtc, nameof(receivedAtUtc));
+
         if (receivedAtUtc < startsAtUtc - CheckInOpensBeforeStart)
         {
             return AttendanceCheckInDecision.NotOpen;
@@ -50,4 +33,26 @@ public sealed record AttendancePolicy
             ? AttendanceCheckInDecision.Late
             : AttendanceCheckInDecision.Closed;
     }
+
+    public TimeSpan CheckInOpensBeforeStart { get; init; } =
+        RequirePositive(CheckInOpensBeforeStart, nameof(CheckInOpensBeforeStart));
+
+    public TimeSpan LateGracePeriod { get; init; } =
+        RequirePositive(LateGracePeriod, nameof(LateGracePeriod));
+
+    private static TimeSpan RequirePositive(TimeSpan value, string parameterName) =>
+        value > TimeSpan.Zero
+            ? value
+            : throw new ArgumentOutOfRangeException(parameterName);
+}
+
+internal static class AttendanceTimestamp
+{
+    public static DateTimeOffset RequireUtc(DateTimeOffset value, string parameterName) =>
+        value.Offset == TimeSpan.Zero
+            ? value
+            : throw new ArgumentException("Timestamp must use a UTC offset.", parameterName);
+
+    public static DateTimeOffset? RequireUtc(DateTimeOffset? value, string parameterName) =>
+        value is null ? null : RequireUtc(value.Value, parameterName);
 }

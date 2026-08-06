@@ -7,4 +7,8 @@ public sealed record AttendanceEntry(
     DateTimeOffset? ReceivedAtUtc,
     string? CredentialId,
     string? ManualReason,
-    Guid? ConfirmedByProctorId);
+    Guid? ConfirmedByProctorId)
+{
+    public DateTimeOffset? ReceivedAtUtc { get; init; } =
+        AttendanceTimestamp.RequireUtc(ReceivedAtUtc, nameof(ReceivedAtUtc));
+}

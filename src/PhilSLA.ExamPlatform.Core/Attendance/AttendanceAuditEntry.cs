@@ -7,4 +7,8 @@ public sealed record AttendanceAuditEntry(
     AttendanceStatus NewStatus,
     string Reason,
     Guid ProctorId,
-    DateTimeOffset OccurredAtUtc);
+    DateTimeOffset OccurredAtUtc)
+{
+    public DateTimeOffset OccurredAtUtc { get; init; } =
+        AttendanceTimestamp.RequireUtc(OccurredAtUtc, nameof(OccurredAtUtc));
+}
