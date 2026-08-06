@@ -241,6 +241,10 @@ wrong-session scans, pairing changes, clock anomalies, and failed finalization
 attempts. Logs must minimize personal information while retaining enough context
 for investigation.
 
+The current workstation vertical slice defers successful and failed finalization
+operational-event logging. It persists finalization state and attendance state-change
+audit history only; a separate operational-event store remains future work.
+
 ## Error and recovery behavior
 
 - **Phone disconnected:** scanning is disabled immediately and the app prominently

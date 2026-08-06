@@ -104,6 +104,11 @@ public sealed class SqliteAttendanceStore(string databasePath) : IAttendanceStor
         await using var transaction = (SqliteTransaction)
             await connection.BeginTransactionAsync(cancellationToken);
 
+        if ((long)record.Version != (long)expectedVersion + 1)
+        {
+            throw new InvalidOperationException(ConflictMessage);
+        }
+
         await using (var sessionCommand = connection.CreateCommand())
         {
             sessionCommand.Transaction = transaction;

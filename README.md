@@ -34,6 +34,10 @@ and remain planned work. Signed exam-package delivery, encrypted local storage,
 webcam recording, lockdown integration, and production security controls also
 remain planned.
 
+Successful and failed finalization operational-event logging is deferred. The
+current slice persists finalization state durably but does not record a separate
+finalization operation event.
+
 Android and iOS folders remain from the generated template, but Android and iOS are
 not project targets or supported platforms.
 

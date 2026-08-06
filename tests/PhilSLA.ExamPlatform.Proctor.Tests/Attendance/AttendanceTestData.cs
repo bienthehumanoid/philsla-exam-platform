@@ -63,6 +63,6 @@ internal static class AttendanceTestData
             new AttendancePolicy(TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(15)),
             students ??
             [
-                new AssignedStudent(StudentId, "2026-0001", "Ana Reyes", "photos/ana.jpg")
+                new AssignedStudent(StudentId, "2026-0001", "Ana Reyes", "A01", "photos/ana.jpg")
             ]);
 }

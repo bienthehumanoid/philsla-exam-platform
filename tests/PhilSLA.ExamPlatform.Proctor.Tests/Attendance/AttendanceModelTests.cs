@@ -6,6 +6,37 @@ namespace PhilSLA.ExamPlatform.Proctor.Tests.Attendance;
 public sealed class AttendanceModelTests
 {
     [TestMethod]
+    public void SessionDefinition_RequiresAssignedSeatLabels()
+    {
+        var student = new AssignedStudent(
+            AttendanceTestData.StudentId,
+            "2026-0001",
+            "Ana Reyes",
+            " ",
+            "photos/ana.jpg");
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            AttendanceTestData.CreateDefinition([student]));
+
+        StringAssert.Contains(exception.Message, "seat label");
+    }
+
+    [TestMethod]
+    public void SessionDefinition_RejectsDuplicateSeatLabelsIgnoringCase()
+    {
+        var students = new[]
+        {
+            new AssignedStudent(Guid.NewGuid(), "2026-0001", "Ana Reyes", "A01", "photos/ana.jpg"),
+            new AssignedStudent(Guid.NewGuid(), "2026-0002", "Ben Santos", "a01", "photos/ben.jpg")
+        };
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            AttendanceTestData.CreateDefinition(students));
+
+        StringAssert.Contains(exception.Message, "Seat labels must be unique");
+    }
+
+    [TestMethod]
     public void AuthoritativeTimestamps_RejectNonUtcOffsets()
     {
         var nonUtc = new DateTimeOffset(2026, 8, 6, 8, 0, 0, TimeSpan.FromHours(8));
@@ -77,6 +108,7 @@ public sealed class AttendanceModelTests
             AttendanceTestData.StudentId,
             "2026-0001",
             "Ana Reyes",
+            "A01",
             "photos/ana.jpg");
         var definition = AttendanceTestData.CreateDefinition([student]);
         var entry = new AttendanceEntry(
@@ -122,7 +154,7 @@ public sealed class AttendanceModelTests
     [TestMethod]
     public void WithExpressions_DefensivelyWrapMutableCollections()
     {
-        var student = new AssignedStudent(AttendanceTestData.StudentId, "2026-0001", "Ana Reyes", "photos/ana.jpg");
+        var student = new AssignedStudent(AttendanceTestData.StudentId, "2026-0001", "Ana Reyes", "A01", "photos/ana.jpg");
         var definition = AttendanceTestData.CreateDefinition([student]);
         var entry = new AttendanceEntry(student.Id, AttendanceStatus.Unmarked, null, null, null, null, null);
         var record = new AttendanceSessionRecord(definition.Id, [entry], [], null, 0);

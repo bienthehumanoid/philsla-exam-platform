@@ -68,6 +68,7 @@ public sealed class AttendanceService
         string? manualReason,
         CancellationToken cancellationToken = default)
     {
+        var receivedAtUtc = _timeProvider.GetUtcNow();
         if (method is not AttendanceCheckInMethod.Qr and not AttendanceCheckInMethod.Manual)
         {
             throw new ArgumentOutOfRangeException(nameof(method), method, "Unsupported check-in method.");
@@ -90,14 +91,13 @@ public sealed class AttendanceService
                     WasCreated: false);
             }
 
-            var receivedAtUtc = _timeProvider.GetUtcNow();
             var decision = definition.Policy.Classify(definition.StartsAtUtc, receivedAtUtc);
             var status = decision switch
             {
                 AttendanceCheckInDecision.Present => AttendanceStatus.Present,
                 AttendanceCheckInDecision.Late => AttendanceStatus.Late,
-                AttendanceCheckInDecision.NotOpen => throw new InvalidOperationException("Check-in has not opened."),
-                AttendanceCheckInDecision.Closed => throw new InvalidOperationException("Check-in closed."),
+                AttendanceCheckInDecision.NotOpen => throw new AttendancePolicyException("Check-in has not opened."),
+                AttendanceCheckInDecision.Closed => throw new AttendancePolicyException("Check-in closed."),
                 _ => throw new InvalidOperationException("Unsupported check-in decision.")
             };
 
@@ -220,7 +220,7 @@ public sealed class AttendanceService
 
             if (entry.Status != AttendanceStatus.PendingAbsence)
             {
-                throw new InvalidOperationException("Only a pending absence can be confirmed.");
+                throw new AttendancePolicyException("Only a pending absence can be confirmed.");
             }
 
             var occurredAtUtc = _timeProvider.GetUtcNow();
@@ -277,14 +277,22 @@ public sealed class AttendanceService
                 cancellationToken);
             EnsureWritable(record);
             var entry = GetAssignedEntry(definition, record, studentId);
+            if (entry.Status is AttendanceStatus.Unmarked or AttendanceStatus.PendingAbsence)
+            {
+                throw new AttendancePolicyException(
+                    "Resolve attendance through identity-confirmed check-in or absence review before correcting it.");
+            }
+
             var occurredAtUtc = _timeProvider.GetUtcNow();
             var cutoffAtUtc = definition.StartsAtUtc + definition.Policy.LateGracePeriod;
             var createsAdmission = IsAdmissible(replacement) && !IsAdmissible(entry.Status);
             var hasPreCutoffReceipt = entry.ReceivedAtUtc.HasValue && entry.ReceivedAtUtc < cutoffAtUtc;
-            if (occurredAtUtc >= cutoffAtUtc && createsAdmission && !hasPreCutoffReceipt)
+            if (createsAdmission && !hasPreCutoffReceipt)
             {
-                throw new InvalidOperationException(
-                    "Post-cutoff admission requires pre-cutoff check-in evidence.");
+                throw new AttendancePolicyException(
+                    occurredAtUtc >= cutoffAtUtc
+                        ? "Post-cutoff admission requires pre-cutoff check-in evidence."
+                        : "Admission correction requires pre-cutoff check-in evidence.");
             }
 
             var changedEntry = new AttendanceEntry(
@@ -331,13 +339,13 @@ public sealed class AttendanceService
             var finalizedAtUtc = _timeProvider.GetUtcNow();
             if (finalizedAtUtc < definition.EndsAtUtc)
             {
-                throw new InvalidOperationException("Attendance cannot be finalized before the scheduled end.");
+                throw new AttendancePolicyException("Attendance cannot be finalized before the scheduled end.");
             }
 
             if (record.Entries.Any(entry =>
                 entry.Status is AttendanceStatus.Unmarked or AttendanceStatus.PendingAbsence))
             {
-                throw new InvalidOperationException("Confirm all pending absences before finalizing attendance.");
+                throw new AttendancePolicyException("Confirm all pending absences before finalizing attendance.");
             }
 
             var changed = new AttendanceSessionRecord(
@@ -427,7 +435,7 @@ public sealed class AttendanceService
     {
         if (record.FinalizedAtUtc.HasValue)
         {
-            throw new InvalidOperationException("Finalized attendance is read-only.");
+            throw new AttendancePolicyException("Finalized attendance is read-only.");
         }
     }
 }
