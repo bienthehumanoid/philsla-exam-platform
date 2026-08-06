@@ -21,11 +21,16 @@ devices and the proctor machine.
 - SQLite WAL attempt persistence with append-only, integrity-chained answer revisions
 - Core examination rules separated from Candidate presentation and Infrastructure
   persistence
-- .NET 10 MAUI Blazor Hybrid proctor application shell for Windows and Mac Catalyst
+- .NET 10 MAUI Blazor Hybrid proctor workstation for Windows and Mac Catalyst
+- seeded, offline manual attendance for assigned sessions: Present/Late check-in,
+  absence review, corrections, durable SQLite WAL records, audit history, and
+  audited finalization with read-only records
 
 The current examination package, authorization delay, identity, and questions are
-development fixtures. Encryption, package signing, recording, synchronization,
-proctor, cloud, and production lockdown functionality are not implemented.
+development fixtures. Mobile QR scanning, signed permits, a LAN attendance
+endpoint, cross-process candidate admission, and cloud attendance synchronization
+are not implemented. Encryption, package signing, recording, cloud services, and
+production lockdown functionality are also not implemented.
 
 Generated Android and iOS platform folders are present but are not project targets.
 
@@ -34,11 +39,11 @@ Generated Android and iOS platform folders are present but are not project targe
 | Component | Responsibility | Status |
 | --- | --- | --- |
 | `PhilSLA.ExamPlatform.Candidate` | Candidate UI, local exam session, answer capture, recording orchestration, and proctor synchronization | Exam workspace vertical slice |
-| `PhilSLA.ExamPlatform.Proctor` | Proctor-facing desktop UI and operational controls | Application scaffold |
+| `PhilSLA.ExamPlatform.Proctor` | Proctor-facing desktop UI and seeded offline manual attendance workflow | Workstation attendance vertical slice |
 | `PhilSLA.ExamPlatform.Proctor.Server` | Local ASP.NET Core/Kestrel service used by candidates over the examination LAN | Planned |
-| `PhilSLA.ExamPlatform.Core` | Domain rules and application use cases | Initial examination session rules implemented |
+| `PhilSLA.ExamPlatform.Core` | Domain rules and application use cases | Initial examination-session and attendance rules implemented |
 | `PhilSLA.ExamPlatform.Contracts` | Versioned messages and data-transfer contracts shared across processes | Planned |
-| `PhilSLA.ExamPlatform.Infrastructure` | SQLite, cryptography, networking, file storage, and platform adapter implementations | Initial SQLite exam-attempt store implemented |
+| `PhilSLA.ExamPlatform.Infrastructure` | SQLite, cryptography, networking, file storage, and platform adapter implementations | Initial SQLite exam-attempt and attendance stores implemented |
 | `PhilSLA.ExamPlatform.SharedUi` | Reusable Blazor components and presentation primitives | Planned |
 | Test projects | Unit, integration, contract, recovery, and performance tests | Domain, component, and SQLite recovery coverage started |
 | Cloud API | Online identity, package distribution, and completed-exam ingestion | Deferred to a later design phase |

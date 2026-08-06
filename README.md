@@ -10,7 +10,7 @@ access is restored.
 ## Project status
 
 The repository currently contains an early candidate application vertical slice and
-a proctor application scaffold:
+a proctor workstation attendance vertical slice:
 
 - .NET 10 MAUI Blazor Hybrid candidate application
 - Windows target: `net10.0-windows10.0.19041.0`
@@ -20,12 +20,17 @@ a proctor application scaffold:
 - SQLite WAL persistence with append-only, integrity-chained answer revisions
 - question flagging, navigation, explicit block submission, timeout submission,
   and local crash recovery
-- .NET 10 MAUI Blazor Hybrid proctor application with temporary local authentication
+- .NET 10 MAUI Blazor Hybrid proctor workstation with temporary local authentication
+- seeded, offline manual attendance for assigned sessions, including Present/Late
+  check-in, absence review, corrections, durable SQLite records, audit history, and
+  audited finalization with read-only records
 
 The seeded examination and timed proctor authorization are development fixtures.
-Signed exam-package delivery, encrypted local storage, proctor services, webcam
-recording, synchronization, lockdown integration, and production security controls
-remain planned work.
+Mobile QR scanning, signed permits, a LAN attendance endpoint, cross-process
+candidate admission, and cloud attendance synchronization are outside this
+workstation slice and remain planned work. Signed exam-package delivery, encrypted
+local storage, webcam recording, lockdown integration, and production security
+controls also remain planned.
 
 Android and iOS folders remain from the generated template, but Android and iOS are
 not project targets or supported platforms.
@@ -114,11 +119,13 @@ an application restart.
 └── PhilSLA.ExamPlatform.slnx
 ```
 
-`PhilSLA.ExamPlatform.Core` contains the first examination rules and application
-service. `PhilSLA.ExamPlatform.Infrastructure` contains the SQLite examination
-attempt store. `PhilSLA.ExamPlatform.Proctor` is currently a desktop application
-shell without operational workflows. The architecture still plans separate
-local-server, contracts, and shared-UI projects. A cloud API will be designed later.
+`PhilSLA.ExamPlatform.Core` contains the first examination and attendance rules and
+application services. `PhilSLA.ExamPlatform.Infrastructure` contains SQLite stores
+for examination attempts and workstation attendance records.
+`PhilSLA.ExamPlatform.Proctor` implements the seeded offline manual-attendance
+workstation slice; it is not a local attendance service. The architecture still
+plans separate local-server, contracts, and shared-UI projects. A cloud API will be
+designed later.
 
 ## Security and repository hygiene
 
