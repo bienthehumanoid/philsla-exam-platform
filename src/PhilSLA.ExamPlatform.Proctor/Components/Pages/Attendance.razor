@@ -1,0 +1,484 @@
+@page "/attendance/{SessionId:guid}"
+@implements IAsyncDisposable
+@inject ProctorSessionState ProctorSession
+@inject NavigationManager Navigation
+@inject AttendanceService AttendanceService
+
+<PageTitle>Student Attendance | PhilSLA Proctor Workstation</PageTitle>
+
+@if (ProctorSession.IsAuthenticated)
+{
+    <div class="attendance-page">
+        @if (_isLoading)
+        {
+            <p class="attendance-loading" role="status">Loading attendance roster...</p>
+        }
+        else if (_snapshot is null)
+        {
+            @if (_pageError is not null)
+            {
+                <div class="page-error" role="alert">@_pageError</div>
+            }
+        }
+        else
+        {
+            <header class="attendance-heading">
+                <div>
+                    <a class="back-link" href="home">Back to assigned sessions</a>
+                    <h1>@_snapshot.Definition.Title</h1>
+                    <p class="session-details">
+                        @_snapshot.Definition.Room · @FormatSchedule(_snapshot.Definition)
+                    </p>
+                </div>
+                <dl class="timing-summary" aria-label="Attendance timing">
+                    <div>
+                        <dt>Check-in opens</dt>
+                        <dd>@FormatLocalTime(_snapshot.CheckInOpensAtUtc)</dd>
+                    </div>
+                    <div>
+                        <dt>Cutoff</dt>
+                        <dd>@FormatLocalTime(_snapshot.CutoffAtUtc)</dd>
+                    </div>
+                </dl>
+            </header>
+
+            @if (_pageError is not null)
+            {
+                <div class="page-error" role="alert">@_pageError</div>
+            }
+
+            @if (_checkInError is not null)
+            {
+                <div class="check-in-error" role="alert">@_checkInError</div>
+            }
+
+            @if (_checkInResult is not null)
+            {
+                <div class="check-in-result" role="status">@_checkInResult</div>
+            }
+
+            <section class="operations-grid" aria-label="Attendance operations">
+                <div class="totals-panel">
+                    <h2>Live attendance</h2>
+                    <dl class="attendance-totals">
+                        <div class="attendance-total status-present">
+                            <dt>Present</dt>
+                            <dd>@_snapshot.PresentCount</dd>
+                        </div>
+                        <div class="attendance-total status-late">
+                            <dt>Late</dt>
+                            <dd>@_snapshot.LateCount</dd>
+                        </div>
+                        <div class="attendance-total status-absent">
+                            <dt>Absent</dt>
+                            <dd>@_snapshot.AbsentCount</dd>
+                        </div>
+                        <div class="attendance-total status-pending">
+                            <dt>Pending</dt>
+                            <dd>@_snapshot.PendingCount</dd>
+                        </div>
+                        <div class="attendance-total status-unmarked">
+                            <dt>Unmarked</dt>
+                            <dd>@_snapshot.UnmarkedCount</dd>
+                        </div>
+                    </dl>
+                </div>
+
+                <aside class="scanner-panel" aria-labelledby="scanner-title">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M8 12h8" />
+                    </svg>
+                    <div>
+                        <h2 id="scanner-title">Mobile scanner</h2>
+                        <p class="scanner-status">Mobile scanner not connected — use manual check-in</p>
+                    </div>
+                </aside>
+            </section>
+
+            <section class="roster-panel" aria-labelledby="roster-title">
+                <div class="roster-heading">
+                    <div>
+                        <h2 id="roster-title">Student roster</h2>
+                        <p>@FilteredStudents.Count student@(FilteredStudents.Count == 1 ? string.Empty : "s") shown</p>
+                    </div>
+                    <div class="search-field">
+                        <label for="student-search">Search by student number or name</label>
+                        <input id="student-search"
+                               type="search"
+                               value="@_searchText"
+                               @oninput="SearchChanged"
+                               placeholder="Search roster" />
+                    </div>
+                </div>
+
+                @if (FilteredStudents.Count == 0)
+                {
+                    <p class="empty-roster">No students match this search.</p>
+                }
+                else
+                {
+                    <div class="roster-list">
+                        @foreach (var student in FilteredStudents)
+                        {
+                            var entry = EntryFor(student.Id);
+                            <button class="student-row"
+                                    type="button"
+                                    data-student-id="@student.Id"
+                                    aria-label="Manually check in @student.FullName, current status @StatusText(entry.Status)"
+                                    @onclick="() => OpenManualCheckIn(student)">
+                                <img class="reference-photo"
+                                     src="@student.ReferencePhotoPath"
+                                     alt="Reference photo of @student.FullName"
+                                     width="56"
+                                     height="56" />
+                                <span class="student-identity">
+                                    <strong>@student.FullName</strong>
+                                    <span>@student.StudentNumber</span>
+                                </span>
+                                <span class="status-cell">
+                                    <span class="student-status @StatusClass(entry.Status)">@StatusText(entry.Status)</span>
+                                    <span class="status-label">Status</span>
+                                </span>
+                                <span class="method-cell">
+                                    <span class="check-in-method">@MethodText(entry.CheckInMethod)</span>
+                                    <span class="status-label">Check-in method</span>
+                                </span>
+                                <span class="manual-action">Manual check-in</span>
+                            </button>
+                        }
+                    </div>
+                }
+            </section>
+        }
+    </div>
+}
+
+@if (_selectedStudent is not null)
+{
+    <div class="dialog-backdrop">
+        <section class="manual-dialog"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="manual-dialog-title"
+                 @onkeydown="HandleDialogKeyDown">
+            <header class="dialog-heading">
+                <div>
+                    <p>Manual attendance</p>
+                    <h2 id="manual-dialog-title">Confirm student identity</h2>
+                </div>
+                <button class="dialog-close" type="button" aria-label="Cancel manual check-in" @onclick="CancelManualCheckIn">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="m6 6 12 12M18 6 6 18" />
+                    </svg>
+                </button>
+            </header>
+
+            <div class="dialog-student">
+                <img src="@_selectedStudent.ReferencePhotoPath"
+                     alt="Reference photo of @_selectedStudent.FullName"
+                     width="88"
+                     height="88" />
+                <div>
+                    <strong>@_selectedStudent.FullName</strong>
+                    <span>@_selectedStudent.StudentNumber</span>
+                </div>
+            </div>
+
+            <div class="reason-field">
+                <label for="manual-reason">Reason for manual check-in <span aria-hidden="true">*</span></label>
+                <textarea id="manual-reason"
+                          @ref="_reasonInput"
+                          autofocus
+                          rows="3"
+                          value="@_manualReason"
+                          aria-describedby="manual-reason-help"
+                          aria-errormessage="@(string.IsNullOrWhiteSpace(_manualReason) ? "manual-reason-error" : null)"
+                          aria-invalid="@string.IsNullOrWhiteSpace(_manualReason).ToString().ToLowerInvariant()"
+                          @oninput="ReasonChanged"
+                          @onchange="ReasonChanged"></textarea>
+                <p id="manual-reason-help" class="field-help">Record why the scanner or printed permit could not be used.</p>
+                @if (string.IsNullOrWhiteSpace(_manualReason))
+                {
+                    <p id="manual-reason-error" class="field-error">Enter a reason for manual check-in.</p>
+                }
+            </div>
+
+            <label class="identity-confirmation" for="identity-confirmed">
+                <input id="identity-confirmed"
+                       type="checkbox"
+                       checked="@_identityConfirmed"
+                       @onchange="IdentityConfirmationChanged" />
+                <span>I compared the student with the reference photo and confirmed their identity.</span>
+            </label>
+
+            <footer class="dialog-actions">
+                <button class="cancel-check-in" type="button" @onclick="CancelManualCheckIn">Cancel</button>
+                <button class="confirm-check-in"
+                        type="button"
+                        disabled="@(!CanConfirm)"
+                        @onclick="ConfirmManualCheckInAsync">
+                    @(_isSubmitting ? "Saving..." : "Confirm check-in")
+                </button>
+            </footer>
+        </section>
+    </div>
+}
+
+@code {
+    private static readonly TimeSpan PhilippineOffset = TimeSpan.FromHours(8);
+    private readonly CancellationTokenSource _timerCancellation = new();
+    private readonly PeriodicTimer _cutoffTimer = new(TimeSpan.FromMinutes(1));
+    private AttendanceSessionSnapshot? _snapshot;
+    private AssignedStudent? _selectedStudent;
+    private ElementReference _reasonInput;
+    private Task? _timerTask;
+    private string _searchText = string.Empty;
+    private string _manualReason = string.Empty;
+    private string? _pageError;
+    private string? _checkInError;
+    private string? _checkInResult;
+    private bool _identityConfirmed;
+    private bool _isLoading;
+    private bool _isSubmitting;
+    private bool _focusReason;
+
+    [Parameter]
+    public Guid SessionId { get; set; }
+
+    private bool CanConfirm =>
+        !_isSubmitting &&
+        _identityConfirmed &&
+        !string.IsNullOrWhiteSpace(_manualReason);
+
+    private IReadOnlyList<AssignedStudent> FilteredStudents
+    {
+        get
+        {
+            if (_snapshot is null)
+            {
+                return [];
+            }
+
+            if (string.IsNullOrWhiteSpace(_searchText))
+            {
+                return _snapshot.Definition.Students;
+            }
+
+            var search = _searchText.Trim();
+            return _snapshot.Definition.Students
+                .Where(student =>
+                    student.FullName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    student.StudentNumber.Contains(search, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ProctorSession.Proctor is not { } proctor)
+        {
+            Navigation.NavigateTo("/", replace: true);
+            return;
+        }
+
+        _isLoading = true;
+        try
+        {
+            _snapshot = await AttendanceService.LoadAsync(SessionId, proctor.Id);
+            _snapshot = await AttendanceService.ApplyCutoffAsync(SessionId, proctor.Id);
+            _timerTask = RunCutoffTimerAsync(_timerCancellation.Token);
+        }
+        catch (InvalidOperationException exception)
+            when (exception.Message == "The attendance session is not assigned to this proctor.")
+        {
+            _pageError = "This attendance session is not assigned to your account.";
+        }
+        catch
+        {
+            _pageError = "The attendance roster could not be loaded. Return to assigned sessions and try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusReason)
+        {
+            return;
+        }
+
+        _focusReason = false;
+        await _reasonInput.FocusAsync();
+    }
+
+    private async Task RunCutoffTimerAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _cutoffTimer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(ApplyCutoffAsync);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private async Task ApplyCutoffAsync()
+    {
+        if (ProctorSession.Proctor is not { } proctor)
+        {
+            return;
+        }
+
+        try
+        {
+            _snapshot = await AttendanceService.ApplyCutoffAsync(SessionId, proctor.Id);
+            _pageError = null;
+        }
+        catch
+        {
+            _pageError = "Attendance could not be refreshed. The current roster remains available.";
+        }
+    }
+
+    private AttendanceEntry EntryFor(Guid studentId) =>
+        _snapshot!.Entries.Single(entry => entry.StudentId == studentId);
+
+    private void SearchChanged(ChangeEventArgs args) =>
+        _searchText = args.Value?.ToString() ?? string.Empty;
+
+    private void OpenManualCheckIn(AssignedStudent student)
+    {
+        _selectedStudent = student;
+        _manualReason = string.Empty;
+        _identityConfirmed = false;
+        _checkInError = null;
+        _checkInResult = null;
+        _focusReason = true;
+    }
+
+    private void ReasonChanged(ChangeEventArgs args) =>
+        _manualReason = args.Value?.ToString() ?? string.Empty;
+
+    private void IdentityConfirmationChanged(ChangeEventArgs args) =>
+        _identityConfirmed = args.Value is true ||
+        bool.TryParse(args.Value?.ToString(), out var confirmed) && confirmed;
+
+    private async Task ConfirmManualCheckInAsync()
+    {
+        if (!CanConfirm ||
+            _selectedStudent is null ||
+            ProctorSession.Proctor is not { } proctor ||
+            _snapshot is null)
+        {
+            return;
+        }
+
+        _isSubmitting = true;
+        _checkInError = null;
+        _checkInResult = null;
+        var wasAlreadyCheckedIn = EntryFor(_selectedStudent.Id).Status is
+            AttendanceStatus.Present or AttendanceStatus.Late;
+        try
+        {
+            _snapshot = await AttendanceService.CheckInAsync(
+                SessionId,
+                _selectedStudent.Id,
+                AttendanceCheckInMethod.Manual,
+                proctor.Id,
+                credentialId: null,
+                manualReason: _manualReason);
+            var updatedEntry = EntryFor(_selectedStudent.Id);
+            _checkInResult = wasAlreadyCheckedIn
+                ? "Already checked in"
+                : updatedEntry.Status switch
+                {
+                    AttendanceStatus.Present => "Checked in — Present",
+                    AttendanceStatus.Late => "Checked in — Late",
+                    _ => throw new InvalidOperationException("The attendance service returned an unsupported check-in status.")
+                };
+            CloseDialog();
+        }
+        catch (InvalidOperationException exception)
+            when (exception.Message is "Check-in has not opened." or "Check-in closed.")
+        {
+            _checkInResult = exception.Message.TrimEnd('.');
+            CloseDialog();
+        }
+        catch
+        {
+            _checkInError = "Manual check-in could not be saved. Try again.";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private void HandleDialogKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape" && !_isSubmitting)
+        {
+            CancelManualCheckIn();
+        }
+    }
+
+    private void CancelManualCheckIn()
+    {
+        if (!_isSubmitting)
+        {
+            CloseDialog();
+        }
+    }
+
+    private void CloseDialog()
+    {
+        _selectedStudent = null;
+        _manualReason = string.Empty;
+        _identityConfirmed = false;
+        _focusReason = false;
+    }
+
+    private static string FormatSchedule(AttendanceSessionDefinition session)
+    {
+        var startsAt = session.StartsAtUtc.ToOffset(PhilippineOffset);
+        var endsAt = session.EndsAtUtc.ToOffset(PhilippineOffset);
+        return $"{startsAt:MMM d, yyyy · hh:mm tt} – {endsAt:hh:mm tt}";
+    }
+
+    private static string FormatLocalTime(DateTimeOffset value) =>
+        value.ToOffset(PhilippineOffset).ToString("hh:mm tt");
+
+    private static string StatusText(AttendanceStatus status) => status switch
+    {
+        AttendanceStatus.PendingAbsence => "Pending",
+        _ => status.ToString()
+    };
+
+    private static string StatusClass(AttendanceStatus status) =>
+        $"status-{status.ToString().ToLowerInvariant()}";
+
+    private static string MethodText(AttendanceCheckInMethod? method) => method switch
+    {
+        AttendanceCheckInMethod.Qr => "QR",
+        AttendanceCheckInMethod.Manual => "Manual",
+        _ => "Not checked in"
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        await _timerCancellation.CancelAsync();
+        _cutoffTimer.Dispose();
+        if (_timerTask is not null)
+        {
+            await _timerTask;
+        }
+
+        _timerCancellation.Dispose();
+    }
+}
