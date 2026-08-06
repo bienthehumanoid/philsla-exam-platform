@@ -23,7 +23,7 @@ a proctor workstation attendance vertical slice:
 - .NET 10 MAUI Blazor Hybrid proctor workstation with temporary local authentication
 - seeded, offline manual attendance for assigned sessions, including Present/Late
   check-in, absence review, in-session proctor corrections before finalization,
-  durable SQLite records, audit history, and durable finalization with read-only
+  durable SQLite records, audit history, and audited finalization with read-only
   records
 
 The seeded examination and timed proctor authorization are development fixtures.
