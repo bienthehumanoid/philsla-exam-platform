@@ -86,6 +86,22 @@ public sealed class AttendanceServiceTests
     }
 
     [TestMethod]
+    public async Task CheckIn_WithUndefinedMethod_IsRejectedBeforeStateIsCreated()
+    {
+        var fixture = CreateFixture(AttendanceTestData.StartsAtUtc.AddMinutes(-10));
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => fixture.Service.CheckInAsync(
+            fixture.Definition.Id,
+            AttendanceTestData.StudentId,
+            (AttendanceCheckInMethod)2,
+            AttendanceTestData.ProctorId,
+            credentialId: null,
+            manualReason: null));
+
+        Assert.IsNull(await fixture.Store.LoadAsync(fixture.Definition.Id));
+    }
+
+    [TestMethod]
     public async Task CheckIn_ByWrongProctor_IsRejected()
     {
         var fixture = CreateFixture(AttendanceTestData.StartsAtUtc.AddMinutes(-10));

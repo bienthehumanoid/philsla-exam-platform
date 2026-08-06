@@ -51,6 +51,11 @@ public sealed class AttendanceService
         string? manualReason,
         CancellationToken cancellationToken = default)
     {
+        if (method is not AttendanceCheckInMethod.Qr and not AttendanceCheckInMethod.Manual)
+        {
+            throw new ArgumentOutOfRangeException(nameof(method), method, "Unsupported check-in method.");
+        }
+
         await _mutationLock.WaitAsync(cancellationToken);
         try
         {
