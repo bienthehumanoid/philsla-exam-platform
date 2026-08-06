@@ -281,6 +281,43 @@ public sealed class SqliteAttendanceStoreTests
         Assert.IsEmpty(restored.AuditEntries);
     }
 
+    [TestMethod]
+    public async Task LoadAsync_WhenSaveCommitsAfterHeaderRead_ReturnsPreCommitAggregateSnapshot()
+    {
+        var store = new SqliteAttendanceStore(_databasePath);
+        var created = await store.CreateAsync(AttendanceTestData.CreateDefinition());
+        var headerRead = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var continueRecovery = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var recoveringStore = new SqliteAttendanceStore(
+            _databasePath,
+            async cancellationToken =>
+            {
+                headerRead.TrySetResult(true);
+                await continueRecovery.Task.WaitAsync(cancellationToken);
+            });
+
+        var loadTask = Task.Run(() => recoveringStore.LoadAsync(created.SessionId));
+        var changed = CreateManualAttendance(created);
+        try
+        {
+            await headerRead.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await store.SaveAsync(changed, created.Version);
+        }
+        finally
+        {
+            continueRecovery.TrySetResult(true);
+        }
+
+        var restored = await loadTask;
+
+        Assert.IsNotNull(restored);
+        Assert.AreEqual(created.Version, restored.Version);
+        Assert.AreEqual(AttendanceStatus.Unmarked, restored.Entries[0].Status);
+        Assert.IsEmpty(restored.AuditEntries);
+    }
+
     private static AttendanceSessionRecord CreateManualAttendance(
         AttendanceSessionRecord created)
     {

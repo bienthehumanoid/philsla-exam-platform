@@ -15,4 +15,8 @@
     <ProjectReference Include="..\PhilSLA.ExamPlatform.Core\PhilSLA.ExamPlatform.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="PhilSLA.ExamPlatform.Proctor.Tests" />
+  </ItemGroup>
+
 </Project>

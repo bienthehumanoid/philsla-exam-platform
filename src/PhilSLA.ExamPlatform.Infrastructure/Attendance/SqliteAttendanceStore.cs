@@ -10,7 +10,17 @@ public sealed class SqliteAttendanceStore(string databasePath) : IAttendanceStor
         "The attendance record was changed by another operation.";
 
     private readonly SemaphoreSlim _initializationLock = new(1, 1);
+    private readonly Func<CancellationToken, Task>? _afterSessionHeaderRead;
     private bool _initialized;
+
+    internal SqliteAttendanceStore(
+        string databasePath,
+        Func<CancellationToken, Task> afterSessionHeaderRead)
+        : this(databasePath)
+    {
+        _afterSessionHeaderRead = afterSessionHeaderRead
+            ?? throw new ArgumentNullException(nameof(afterSessionHeaderRead));
+    }
 
     public async Task<AttendanceSessionRecord?> LoadAsync(
         Guid sessionId,
@@ -358,7 +368,7 @@ public sealed class SqliteAttendanceStore(string databasePath) : IAttendanceStor
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    private static async Task<AttendanceSessionRecord?> LoadAsync(
+    private async Task<AttendanceSessionRecord?> LoadAsync(
         SqliteConnection connection,
         SqliteTransaction transaction,
         Guid sessionId,
@@ -386,6 +396,11 @@ public sealed class SqliteAttendanceStore(string databasePath) : IAttendanceStor
             finalizedAtUtc = reader.IsDBNull(1)
                 ? null
                 : Parse(reader.GetString(1));
+        }
+
+        if (_afterSessionHeaderRead is not null)
+        {
+            await _afterSessionHeaderRead(cancellationToken);
         }
 
         var entries = await LoadEntriesAsync(
@@ -488,7 +503,7 @@ public sealed class SqliteAttendanceStore(string databasePath) : IAttendanceStor
         return entries;
     }
 
-    private static async Task<AttendanceSessionRecord> LoadRequiredAsync(
+    private async Task<AttendanceSessionRecord> LoadRequiredAsync(
         SqliteConnection connection,
         Guid sessionId,
         CancellationToken cancellationToken)
