@@ -1,0 +1,970 @@
+@page "/incidents"
+@inject ProctorSessionState ProctorSession
+@inject NavigationManager Navigation
+@inject IncidentService IncidentService
+@inject IJSRuntime JS
+
+<PageTitle>Incident Records | PhilSLA Proctor Workstation</PageTitle>
+
+@if (ProctorSession.IsAuthenticated)
+{
+    <div class="incidents-page">
+        <header class="incidents-heading">
+            <div>
+                <h1>Incident Records</h1>
+                <p>Review reported examination violations and documented evidence for candidates assigned to your sessions.</p>
+            </div>
+            <button class="create-incident" type="button" @onclick="OpenCreateDialogAsync">
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 8v8M8 12h8" />
+                </svg>
+                Create Incident
+            </button>
+        </header>
+
+        @if (_createdMessage is not null)
+        {
+            <div class="incident-created-message" role="status">@_createdMessage</div>
+        }
+
+        @if (_isLoading)
+        {
+            <p class="incidents-loading" role="status">Loading incident records...</p>
+        }
+        else if (_loadError is not null)
+        {
+            <div class="incidents-error" role="alert">
+                <p>@_loadError</p>
+                <button class="retry-incidents" type="button" @onclick="LoadAsync">Retry</button>
+            </div>
+        }
+        else
+        {
+            <section class="incident-controls" aria-label="Search and filter incident records">
+                <div class="incident-search-field">
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m20 20-4-4" />
+                    </svg>
+                    <label class="visually-hidden" for="incident-search">Search incident records</label>
+                    <input id="incident-search"
+                           type="search"
+                           value="@_searchText"
+                           @oninput="SearchChanged"
+                           placeholder="Search by student name, ID, incident category..." />
+                </div>
+                <div class="incident-filter">
+                    <button id="severity-filter" class="incident-filter-trigger" type="button"
+                            aria-haspopup="listbox" aria-expanded="@(_openFilterMenu == FilterMenu.Severity)"
+                            aria-controls="severity-filter-options"
+                            @onclick="() => ToggleFilterMenu(FilterMenu.Severity)"
+                            @onblur="CloseFilterMenu"
+                            @onkeydown="args => HandleFilterKeyDown(args, FilterMenu.Severity)">
+                        <span>Severity:</span>
+                        <strong>@FilterLabel(FilterMenu.Severity)</strong>
+                        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>
+                    </button>
+                    @if (_openFilterMenu == FilterMenu.Severity)
+                    {
+                        <div id="severity-filter-options" class="incident-filter-options" role="listbox"
+                             aria-label="Filter by severity" style="width:100%">
+                            @foreach (var value in SeverityFilterValues)
+                            {
+                                <button type="button" class="@FilterOptionClass(FilterMenu.Severity, value)"
+                                        role="option" data-filter-value="@value"
+                                        aria-selected="@(value == _severityFilter)"
+                                        @onmousedown:preventDefault
+                                        @onclick="() => SelectFilter(FilterMenu.Severity, value)">
+                                    @FilterOptionLabel(FilterMenu.Severity, value)
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="incident-filter">
+                    <button id="review-status-filter" class="incident-filter-trigger" type="button"
+                            aria-haspopup="listbox" aria-expanded="@(_openFilterMenu == FilterMenu.Status)"
+                            aria-controls="review-status-filter-options"
+                            @onclick="() => ToggleFilterMenu(FilterMenu.Status)"
+                            @onblur="CloseFilterMenu"
+                            @onkeydown="args => HandleFilterKeyDown(args, FilterMenu.Status)">
+                        <span>Status:</span>
+                        <strong>@FilterLabel(FilterMenu.Status)</strong>
+                        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>
+                    </button>
+                    @if (_openFilterMenu == FilterMenu.Status)
+                    {
+                        <div id="review-status-filter-options" class="incident-filter-options" role="listbox"
+                             aria-label="Filter by review status" style="width:100%">
+                            @foreach (var value in StatusFilterValues)
+                            {
+                                <button type="button" class="@FilterOptionClass(FilterMenu.Status, value)"
+                                        role="option" data-filter-value="@value"
+                                        aria-selected="@(value == _statusFilter)"
+                                        @onmousedown:preventDefault
+                                        @onclick="() => SelectFilter(FilterMenu.Status, value)">
+                                    @FilterOptionLabel(FilterMenu.Status, value)
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="incident-table-panel" aria-labelledby="incident-table-title">
+                <h2 id="incident-table-title" class="visually-hidden">Recorded incidents</h2>
+                @if (_incidents.Count == 0)
+                {
+                    <div class="incidents-empty">
+                        <strong>No incidents recorded</strong>
+                        <p>Created incidents for assigned candidates will appear here.</p>
+                    </div>
+                }
+                else if (FilteredIncidents.Count == 0)
+                {
+                    <div class="incidents-empty">
+                        <strong>No matching incidents</strong>
+                        <p>Try changing the search or filters.</p>
+                    </div>
+                }
+                else
+                {
+                    <table class="incident-table">
+                        <caption>Incident records assigned to this proctor</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Incident ID</th>
+                                <th scope="col">Student Information</th>
+                                <th scope="col">Incident Category</th>
+                                <th scope="col">Severity</th>
+                                <th scope="col">Review Status</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var incident in FilteredIncidents)
+                            {
+                                <tr data-incident-id="@incident.Id">
+                                    <th scope="row" data-label="Incident ID">
+                                        <strong class="incident-id">@incident.DisplayId</strong>
+                                        <time datetime="@incident.CreatedAtUtc.ToString("O")">@FormatTimestamp(incident.CreatedAtUtc)</time>
+                                    </th>
+                                    <td data-label="Student Information">
+                                        <strong>@incident.CandidateName</strong>
+                                        <span>@incident.StudentNumber · @incident.Room</span>
+                                    </td>
+                                    <td data-label="Incident Category"><strong>@incident.CategoryName</strong></td>
+                                    <td data-label="Severity">
+                                        <span class="severity-badge @SeverityClass(incident.Severity)">
+                                            <svg aria-hidden="true" viewBox="0 0 24 24">
+                                                <path d="M12 3 2.5 20h19L12 3Z" />
+                                                <path d="M12 9v5M12 17h.01" />
+                                            </svg>
+                                            @incident.Severity
+                                        </span>
+                                    </td>
+                                    <td data-label="Review Status">
+                                        <span class="review-status @StatusClass(incident.ReviewStatus)">
+                                            <span aria-hidden="true"></span>@incident.ReviewStatus
+                                        </span>
+                                    </td>
+                                    <td class="incident-actions" data-label="Actions">
+                                        <button class="view-incident"
+                                                type="button"
+                                                aria-label="View @incident.DisplayId"
+                                                @onclick="() => OpenDetailsAsync(incident)">
+                                            <svg aria-hidden="true" viewBox="0 0 24 24">
+                                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+        }
+    </div>
+}
+
+@if (_isCreateOpen)
+{
+    <div class="dialog-backdrop">
+        <section class="create-incident-dialog"
+                 @ref="_createDialog"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="create-incident-title"
+                 @onkeydown="HandleCreateDialogKeyDownAsync">
+            <header class="create-dialog-heading">
+                <div>
+                    <h2 id="create-incident-title">Register <span>New Incident</span></h2>
+                    <p>Manual Examination Override Process</p>
+                </div>
+                <button class="dialog-close"
+                        type="button"
+                        disabled="@_isSaving"
+                        aria-label="Close incident registration"
+                        @onclick="CloseCreateDialogAsync">×</button>
+            </header>
+            <div class="create-dialog-content">
+                @if (_formError is not null)
+                {
+                    <div class="incident-form-error" role="alert">@_formError</div>
+                }
+
+                <div class="create-field">
+                    <label for="incident-candidate-search">Assigned Candidate *</label>
+                    <div class="candidate-combobox">
+                        <div class="candidate-combobox-control">
+                            <input id="incident-candidate-search"
+                                   type="text"
+                                   role="combobox"
+                                   aria-autocomplete="list"
+                                   aria-expanded="@_isCandidateMenuOpen"
+                                   aria-controls="incident-candidate-options"
+                                   aria-activedescendant="@ActiveCandidateOptionId"
+                                   autocomplete="off"
+                                   placeholder="-- Choose Candidate --"
+                                   value="@_candidateSearch"
+                                   @oninput="CandidateSearchChanged"
+                                   @onfocus="OpenCandidateMenu"
+                                   @onblur="CloseCandidateMenu"
+                                   @onkeydown="HandleCandidateKeyDownAsync"
+                                   @onkeydown:stopPropagation
+                                   disabled="@_isSaving" />
+                            <svg aria-hidden="true" viewBox="0 0 24 24">
+                                <path d="m7 10 5 5 5-5" />
+                            </svg>
+                        </div>
+                        @if (_isCandidateMenuOpen)
+                        {
+                            <div id="incident-candidate-options"
+                                 class="candidate-options"
+                                 role="listbox"
+                                 aria-label="Assigned candidates"
+                                 style="width:100%;max-height:14rem;overflow-y:auto">
+                                @if (FilteredCandidateAssignments.Count == 0)
+                                {
+                                    <p class="candidate-options-empty">No assigned candidates found.</p>
+                                }
+                                else
+                                {
+                                    @foreach (var assignment in FilteredCandidateAssignments)
+                                    {
+                                        <button type="button"
+                                                id="@CandidateOptionId(assignment)"
+                                                class="@CandidateOptionClass(assignment)"
+                                                role="option"
+                                                aria-selected="@(AssignmentValue(assignment) == _candidateSelection)"
+                                                @onmousedown:preventDefault
+                                                @onclick="() => SelectCandidate(assignment)">
+                                            <span class="candidate-option-primary">@assignment.CandidateName · @assignment.StudentNumber</span>
+                                            <span class="candidate-option-secondary">@assignment.SessionTitle · @assignment.Room</span>
+                                        </button>
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="create-field">
+                    <label for="incident-category">Incident Category *</label>
+                    <select id="incident-category" value="@_categorySelection" @onchange="CategoryChanged" disabled="@_isSaving">
+                        <option value="">-- Choose Category --</option>
+                        @foreach (var category in _creationOptions.Categories)
+                        {
+                            <option value="@category.Id">@category.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="create-field">
+                    <label for="incident-severity">Severity Level *</label>
+                    <select id="incident-severity" value="@_severitySelection" @onchange="CreateSeverityChanged" disabled="@_isSaving">
+                        <option value="">-- Choose Severity --</option>
+                        @foreach (var severity in Enum.GetValues<IncidentSeverity>())
+                        {
+                            <option value="@severity">@severity.ToString().ToUpperInvariant()</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="create-field">
+                    <label for="incident-description">Reason / Description of Breach *</label>
+                    <textarea id="incident-description"
+                              value="@_description"
+                              @oninput="DescriptionChanged"
+                              disabled="@_isSaving"
+                              maxlength="@IncidentRecord.MaximumDescriptionLength"
+                              placeholder="Detail the circumstances, verbal warnings, or visual evidence observed..."></textarea>
+                    <small>@_description.Length / @IncidentRecord.MaximumDescriptionLength</small>
+                </div>
+
+                <div class="create-field evidence-field">
+                    <label for="incident-evidence-input">Screenshot Evidence</label>
+                    <div class="evidence-drop-zone">
+                        <InputFile id="incident-evidence-input"
+                                   class="evidence-file-input"
+                                   style="position:absolute;inset:0;z-index:1;width:100%;height:100%;cursor:pointer;opacity:0"
+                                   OnChange="EvidenceChangedAsync"
+                                   multiple
+                                   accept="image/jpeg,image/png"
+                                   disabled="@_isSaving" />
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                            <path d="M5 6h14M8 6V3h8v3M7 10h10v10H7z" />
+                        </svg>
+                        <strong>Drag screenshots here or <span>browse</span></strong>
+                        <small>JPEG, PNG · up to 5 files · 10 MB each</small>
+                    </div>
+                    @if (_evidenceSelectionError is not null)
+                    {
+                        <p class="evidence-selection-error" role="alert">@_evidenceSelectionError</p>
+                    }
+                    @if (_selectedEvidence.Count > 0)
+                    {
+                        <div class="selected-evidence-list" aria-label="Selected screenshot evidence">
+                            @foreach (var evidence in _selectedEvidence)
+                            {
+                                <article class="selected-evidence">
+                                    <img src="@evidence.PreviewDataUrl" alt="Selected evidence: @evidence.File.Name" />
+                                    <div>
+                                        <strong>@evidence.File.Name</strong>
+                                        <span>@FormatFileSize(evidence.File.Size)</span>
+                                    </div>
+                                    <button class="remove-evidence"
+                                            type="button"
+                                            disabled="@_isSaving"
+                                            aria-label="Remove @evidence.File.Name"
+                                            @onclick="() => RemoveEvidence(evidence)">×</button>
+                                </article>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+            <footer class="create-dialog-actions">
+                <button type="button" disabled="@_isSaving" @onclick="CloseCreateDialogAsync">Cancel</button>
+                <button class="submit-incident" type="button" disabled="@_isSaving" @onclick="SubmitIncidentAsync">
+                    @(_isSaving ? "Saving Incident..." : "Create Incident")
+                </button>
+            </footer>
+        </section>
+    </div>
+}
+
+@if (_selectedIncident is not null)
+{
+    <div class="dialog-backdrop">
+        <section class="incident-detail-dialog"
+                 @ref="_detailDialog"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="incident-detail-title">
+            <header class="incident-dialog-heading">
+                <div>
+                    <p>Incident record</p>
+                    <h2 id="incident-detail-title">@_selectedIncident.DisplayId</h2>
+                </div>
+                <button class="dialog-close" type="button" aria-label="Close incident details" @onclick="CloseDetailsAsync">×</button>
+            </header>
+            <div class="incident-detail-content">
+                <div class="detail-badges">
+                    <span class="severity-badge @SeverityClass(_selectedIncident.Severity)">@_selectedIncident.Severity</span>
+                    <span class="review-status @StatusClass(_selectedIncident.ReviewStatus)"><span aria-hidden="true"></span>@_selectedIncident.ReviewStatus</span>
+                </div>
+                <dl class="incident-facts">
+                    <div><dt>Candidate</dt><dd>@_selectedIncident.CandidateName</dd></div>
+                    <div><dt>Student number</dt><dd>@_selectedIncident.StudentNumber</dd></div>
+                    <div><dt>Session</dt><dd>@_selectedIncident.SessionTitle</dd></div>
+                    <div><dt>Room</dt><dd>@_selectedIncident.Room</dd></div>
+                    <div><dt>Incident category</dt><dd>@_selectedIncident.CategoryName</dd></div>
+                    <div><dt>Reported</dt><dd>@FormatTimestamp(_selectedIncident.CreatedAtUtc)</dd></div>
+                    <div><dt>Reported by</dt><dd>@_selectedIncident.ReportedByProctorName</dd></div>
+                </dl>
+                <section class="incident-description" aria-labelledby="incident-description-title">
+                    <h3 id="incident-description-title">Reason / Description of Breach</h3>
+                    <p>@_selectedIncident.Description</p>
+                </section>
+                <section class="incident-evidence" aria-labelledby="incident-evidence-title">
+                    <h3 id="incident-evidence-title">Screenshot Evidence (@_selectedIncident.Attachments.Count)</h3>
+                    @if (_evidenceError is not null)
+                    {
+                        <p class="evidence-error" role="alert">@_evidenceError</p>
+                    }
+                    else if (_selectedIncident.Attachments.Count == 0)
+                    {
+                        <p class="no-evidence">No screenshot evidence was attached.</p>
+                    }
+                    else
+                    {
+                        <div class="evidence-grid">
+                            @foreach (var attachment in _selectedIncident.Attachments)
+                            {
+                                <button class="evidence-thumbnail"
+                                        type="button"
+                                        disabled="@(!_evidenceDataUrls.ContainsKey(attachment.Id))"
+                                        @onclick="() => OpenEvidencePreview(attachment)">
+                                    @if (_evidenceDataUrls.TryGetValue(attachment.Id, out var source))
+                                    {
+                                        <img src="@source" alt="Evidence: @attachment.OriginalFileName" />
+                                    }
+                                    <span>@attachment.OriginalFileName</span>
+                                </button>
+                            }
+                        </div>
+                    }
+                </section>
+            </div>
+        </section>
+    </div>
+}
+
+@if (_previewAttachment is not null && _evidenceDataUrls.TryGetValue(_previewAttachment.Id, out var previewSource))
+{
+    <div class="evidence-preview-backdrop">
+        <section class="evidence-preview-dialog" role="dialog" aria-modal="true" aria-label="Evidence preview">
+            <button type="button" aria-label="Close evidence preview" @onclick="CloseEvidencePreview">×</button>
+            <img src="@previewSource" alt="Evidence preview: @_previewAttachment.OriginalFileName" />
+            <p>@_previewAttachment.OriginalFileName</p>
+        </section>
+    </div>
+}
+
+@code {
+    private static readonly TimeSpan PhilippineOffset = TimeSpan.FromHours(8);
+    private static readonly string[] SeverityFilterValues = [string.Empty, .. Enum.GetNames<IncidentSeverity>()];
+    private static readonly string[] StatusFilterValues = [string.Empty, .. Enum.GetNames<IncidentReviewStatus>()];
+    private IReadOnlyList<IncidentRecord> _incidents = [];
+    private readonly Dictionary<Guid, string> _evidenceDataUrls = [];
+    private readonly List<SelectedEvidence> _selectedEvidence = [];
+    private IncidentCreationOptions _creationOptions = new([], []);
+    private string _searchText = string.Empty;
+    private string _severityFilter = string.Empty;
+    private string _statusFilter = string.Empty;
+    private string? _loadError;
+    private string? _evidenceError;
+    private string? _formError;
+    private string? _evidenceSelectionError;
+    private string? _createdMessage;
+    private string _candidateSelection = string.Empty;
+    private string _candidateSearch = string.Empty;
+    private string _categorySelection = string.Empty;
+    private string _severitySelection = string.Empty;
+    private string _description = string.Empty;
+    private bool _isLoading;
+    private bool _isCreateOpen;
+    private bool _isCandidateMenuOpen;
+    private bool _isSaving;
+    private int _highlightedCandidateIndex = -1;
+    private FilterMenu? _openFilterMenu;
+    private int _highlightedFilterOption = -1;
+    private bool _focusDetailAfterRender;
+    private bool _focusCreateAfterRender;
+    private IncidentRecord? _selectedIncident;
+    private IncidentAttachment? _previewAttachment;
+    private ElementReference _detailDialog;
+    private ElementReference _createDialog;
+
+    private string? ActiveCandidateOptionId =>
+        _isCandidateMenuOpen && _highlightedCandidateIndex >= 0 && _highlightedCandidateIndex < FilteredCandidateAssignments.Count
+            ? CandidateOptionId(FilteredCandidateAssignments[_highlightedCandidateIndex])
+            : null;
+
+    private IReadOnlyList<IncidentAssignment> FilteredCandidateAssignments
+    {
+        get
+        {
+            var search = _candidateSearch.Trim();
+            if (search.Length == 0)
+            {
+                return _creationOptions.Assignments;
+            }
+
+            return _creationOptions.Assignments
+                .Where(assignment =>
+                    assignment.CandidateName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    assignment.StudentNumber.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    assignment.SessionTitle.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    assignment.Room.Contains(search, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        }
+    }
+
+    private IReadOnlyList<IncidentRecord> FilteredIncidents => _incidents
+        .Where(MatchesSearch)
+        .Where(incident => string.IsNullOrEmpty(_severityFilter) || incident.Severity.ToString() == _severityFilter)
+        .Where(incident => string.IsNullOrEmpty(_statusFilter) || incident.ReviewStatus.ToString() == _statusFilter)
+        .OrderByDescending(incident => incident.CreatedAtUtc)
+        .ThenByDescending(incident => incident.DisplayId, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!ProctorSession.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/", replace: true);
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusDetailAfterRender)
+        {
+            _focusDetailAfterRender = false;
+            await JS.InvokeVoidAsync("philslaAttendanceDialog.open", _detailDialog);
+        }
+
+        if (_focusCreateAfterRender)
+        {
+            _focusCreateAfterRender = false;
+            await JS.InvokeVoidAsync("philslaAttendanceDialog.open", _createDialog);
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        if (ProctorSession.Proctor is not { } proctor)
+        {
+            return;
+        }
+
+        _isLoading = true;
+        _loadError = null;
+        try
+        {
+            _incidents = await IncidentService.LoadAssignedAsync(proctor.Id);
+        }
+        catch
+        {
+            _incidents = [];
+            _loadError = "Incident records could not be loaded.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void SearchChanged(ChangeEventArgs args) => _searchText = args.Value?.ToString() ?? string.Empty;
+
+    private void ToggleFilterMenu(FilterMenu menu)
+    {
+        _openFilterMenu = _openFilterMenu == menu ? null : menu;
+        _highlightedFilterOption = -1;
+    }
+
+    private void CloseFilterMenu()
+    {
+        _openFilterMenu = null;
+        _highlightedFilterOption = -1;
+    }
+
+    private void HandleFilterKeyDown(KeyboardEventArgs args, FilterMenu menu)
+    {
+        var values = FilterValues(menu);
+        switch (args.Key)
+        {
+            case "ArrowDown":
+                _openFilterMenu = menu;
+                _highlightedFilterOption = Math.Min(_highlightedFilterOption + 1, values.Count - 1);
+                break;
+            case "ArrowUp":
+                _openFilterMenu = menu;
+                _highlightedFilterOption = _highlightedFilterOption <= 0
+                    ? values.Count - 1
+                    : _highlightedFilterOption - 1;
+                break;
+            case "Enter" when _openFilterMenu == menu:
+                SelectFilter(menu, values[Math.Max(_highlightedFilterOption, 0)]);
+                break;
+            case "Escape":
+            case "Tab":
+                CloseFilterMenu();
+                break;
+        }
+    }
+
+    private void SelectFilter(FilterMenu menu, string value)
+    {
+        if (menu == FilterMenu.Severity)
+        {
+            _severityFilter = value;
+        }
+        else
+        {
+            _statusFilter = value;
+        }
+
+        CloseFilterMenu();
+    }
+
+    private IReadOnlyList<string> FilterValues(FilterMenu menu) =>
+        menu == FilterMenu.Severity ? SeverityFilterValues : StatusFilterValues;
+
+    private string FilterLabel(FilterMenu menu) =>
+        FilterOptionLabel(menu, menu == FilterMenu.Severity ? _severityFilter : _statusFilter);
+
+    private static string FilterOptionLabel(FilterMenu menu, string value) =>
+        string.IsNullOrEmpty(value)
+            ? menu == FilterMenu.Severity ? "All Severities" : "All Statuses"
+            : value;
+
+    private string? FilterOptionClass(FilterMenu menu, string value)
+    {
+        var values = FilterValues(menu);
+        return _openFilterMenu == menu &&
+               _highlightedFilterOption >= 0 &&
+               _highlightedFilterOption < values.Count &&
+               values[_highlightedFilterOption] == value
+            ? "is-highlighted"
+            : null;
+    }
+
+    private async Task OpenCreateDialogAsync()
+    {
+        if (ProctorSession.Proctor is not { } proctor)
+        {
+            return;
+        }
+
+        _formError = null;
+        _evidenceSelectionError = null;
+        try
+        {
+            _creationOptions = await IncidentService.LoadCreationOptionsAsync(proctor.Id);
+            _isCreateOpen = true;
+            _focusCreateAfterRender = true;
+        }
+        catch
+        {
+            _createdMessage = null;
+            _loadError = "Incident registration options could not be loaded.";
+        }
+    }
+
+    private async Task CloseCreateDialogAsync()
+    {
+        if (_isSaving)
+        {
+            return;
+        }
+
+        _isCreateOpen = false;
+        ResetCreateForm();
+        await JS.InvokeVoidAsync("philslaAttendanceDialog.close");
+    }
+
+    private async Task HandleCreateDialogKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape" && !_isSaving)
+        {
+            await CloseCreateDialogAsync();
+        }
+    }
+
+    private void CandidateSearchChanged(ChangeEventArgs args)
+    {
+        _candidateSearch = args.Value?.ToString() ?? string.Empty;
+        _candidateSelection = string.Empty;
+        _isCandidateMenuOpen = true;
+        _highlightedCandidateIndex = -1;
+    }
+
+    private void OpenCandidateMenu()
+    {
+        _isCandidateMenuOpen = true;
+        _highlightedCandidateIndex = -1;
+    }
+
+    private void CloseCandidateMenu()
+    {
+        _isCandidateMenuOpen = false;
+        _highlightedCandidateIndex = -1;
+    }
+
+    private async Task HandleCandidateKeyDownAsync(KeyboardEventArgs args)
+    {
+        var assignments = FilteredCandidateAssignments;
+        switch (args.Key)
+        {
+            case "ArrowDown" when assignments.Count > 0:
+                _isCandidateMenuOpen = true;
+                _highlightedCandidateIndex = Math.Min(_highlightedCandidateIndex + 1, assignments.Count - 1);
+                break;
+            case "ArrowUp" when assignments.Count > 0:
+                _isCandidateMenuOpen = true;
+                _highlightedCandidateIndex = _highlightedCandidateIndex <= 0
+                    ? assignments.Count - 1
+                    : _highlightedCandidateIndex - 1;
+                break;
+            case "Enter" when _isCandidateMenuOpen && assignments.Count > 0:
+                SelectCandidate(assignments[Math.Max(_highlightedCandidateIndex, 0)]);
+                break;
+            case "Escape" when _isCandidateMenuOpen:
+            case "Tab":
+                CloseCandidateMenu();
+                break;
+            case "Escape":
+                await CloseCreateDialogAsync();
+                break;
+        }
+    }
+
+    private void SelectCandidate(IncidentAssignment assignment)
+    {
+        _candidateSelection = AssignmentValue(assignment);
+        _candidateSearch = $"{assignment.CandidateName} · {assignment.StudentNumber}";
+        _isCandidateMenuOpen = false;
+        _highlightedCandidateIndex = -1;
+    }
+
+    private void CategoryChanged(ChangeEventArgs args) => _categorySelection = args.Value?.ToString() ?? string.Empty;
+
+    private void CreateSeverityChanged(ChangeEventArgs args) => _severitySelection = args.Value?.ToString() ?? string.Empty;
+
+    private void DescriptionChanged(ChangeEventArgs args) => _description = args.Value?.ToString() ?? string.Empty;
+
+    private async Task EvidenceChangedAsync(InputFileChangeEventArgs args)
+    {
+        _evidenceSelectionError = null;
+        var files = args.GetMultipleFiles(10);
+        if (files.Count > IncidentService.MaximumAttachmentCount)
+        {
+            _selectedEvidence.Clear();
+            _evidenceSelectionError = $"You can attach up to {IncidentService.MaximumAttachmentCount} evidence images.";
+            return;
+        }
+
+        var selected = new List<SelectedEvidence>(files.Count);
+        foreach (var file in files)
+        {
+            if (!IsSupportedImage(file))
+            {
+                _selectedEvidence.Clear();
+                _evidenceSelectionError = "Only JPEG and PNG evidence is supported.";
+                return;
+            }
+
+            if (file.Size is <= 0 or > IncidentEvidenceUpload.MaximumBytes)
+            {
+                _selectedEvidence.Clear();
+                _evidenceSelectionError = "Each evidence image must be no larger than 10 MB.";
+                return;
+            }
+
+            await using var stream = file.OpenReadStream(IncidentEvidenceUpload.MaximumBytes);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            selected.Add(new SelectedEvidence(
+                file,
+                $"data:{file.ContentType};base64,{Convert.ToBase64String(memory.ToArray())}"));
+        }
+
+        _selectedEvidence.Clear();
+        _selectedEvidence.AddRange(selected);
+    }
+
+    private void RemoveEvidence(SelectedEvidence evidence) => _selectedEvidence.Remove(evidence);
+
+    private async Task SubmitIncidentAsync()
+    {
+        if (_isSaving || ProctorSession.Proctor is not { } proctor)
+        {
+            return;
+        }
+
+        _formError = ValidateCreateForm();
+        if (_formError is not null)
+        {
+            return;
+        }
+
+        var candidateParts = _candidateSelection.Split('|');
+        var command = new IncidentCreateCommand(
+            Guid.Parse(candidateParts[0]),
+            Guid.Parse(candidateParts[1]),
+            Guid.Parse(_categorySelection),
+            Enum.Parse<IncidentSeverity>(_severitySelection),
+            _description);
+        var uploads = _selectedEvidence
+            .Select(selected => new IncidentEvidenceUpload(
+                selected.File.Name,
+                selected.File.ContentType,
+                selected.File.Size,
+                cancellationToken => Task.FromResult<Stream>(selected.File.OpenReadStream(
+                    IncidentEvidenceUpload.MaximumBytes,
+                    cancellationToken))))
+            .ToArray();
+
+        _isSaving = true;
+        _createdMessage = null;
+        try
+        {
+            var created = await IncidentService.CreateAsync(
+                command,
+                proctor.Id,
+                $"{proctor.FirstName} {proctor.LastName}",
+                uploads);
+            _incidents = _incidents.Append(created)
+                .OrderByDescending(incident => incident.CreatedAtUtc)
+                .ToArray();
+            _createdMessage = $"Incident {created.DisplayId} was created and is pending review.";
+            _isCreateOpen = false;
+            ResetCreateForm();
+            await JS.InvokeVoidAsync("philslaAttendanceDialog.close");
+        }
+        catch (IncidentValidationException exception)
+        {
+            _formError = exception.Message;
+        }
+        catch
+        {
+            _formError = "Incident could not be saved. Review the details and try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private string? ValidateCreateForm()
+    {
+        if (_candidateSelection.Split('|').Length != 2)
+        {
+            return "Choose an assigned candidate and examination session.";
+        }
+
+        if (!Guid.TryParse(_categorySelection, out _))
+        {
+            return "Choose an incident category.";
+        }
+
+        if (!Enum.TryParse<IncidentSeverity>(_severitySelection, out _))
+        {
+            return "Choose a severity level.";
+        }
+
+        if (string.IsNullOrWhiteSpace(_description))
+        {
+            return "Describe the incident before submitting it.";
+        }
+
+        return _description.Trim().Length <= IncidentRecord.MaximumDescriptionLength
+            ? null
+            : $"Description cannot exceed {IncidentRecord.MaximumDescriptionLength} characters.";
+    }
+
+    private void ResetCreateForm()
+    {
+        _candidateSelection = string.Empty;
+        _candidateSearch = string.Empty;
+        _isCandidateMenuOpen = false;
+        _highlightedCandidateIndex = -1;
+        _categorySelection = string.Empty;
+        _severitySelection = string.Empty;
+        _description = string.Empty;
+        _selectedEvidence.Clear();
+        _formError = null;
+        _evidenceSelectionError = null;
+    }
+
+    private bool MatchesSearch(IncidentRecord incident)
+    {
+        var search = _searchText.Trim();
+        return search.Length == 0 ||
+               incident.DisplayId.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+               incident.CandidateName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+               incident.StudentNumber.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+               incident.CategoryName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+               incident.SessionTitle.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+               incident.Room.Contains(search, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task OpenDetailsAsync(IncidentRecord incident)
+    {
+        _selectedIncident = incident;
+        _previewAttachment = null;
+        _evidenceError = null;
+        _evidenceDataUrls.Clear();
+        if (ProctorSession.Proctor is not { } proctor)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var attachment in incident.Attachments)
+            {
+                var bytes = await IncidentService.ReadEvidenceAsync(proctor.Id, incident.Id, attachment.Id);
+                _evidenceDataUrls[attachment.Id] = $"data:{attachment.MediaType};base64,{Convert.ToBase64String(bytes)}";
+            }
+        }
+        catch
+        {
+            _evidenceError = "Screenshot evidence could not be loaded.";
+        }
+
+        _focusDetailAfterRender = true;
+    }
+
+    private async Task CloseDetailsAsync()
+    {
+        _selectedIncident = null;
+        _previewAttachment = null;
+        _evidenceDataUrls.Clear();
+        await JS.InvokeVoidAsync("philslaAttendanceDialog.close");
+    }
+
+    private void OpenEvidencePreview(IncidentAttachment attachment) => _previewAttachment = attachment;
+
+    private void CloseEvidencePreview() => _previewAttachment = null;
+
+    private static string FormatTimestamp(DateTimeOffset value) =>
+        value.ToOffset(PhilippineOffset).ToString("yyyy-MM-dd HH:mm");
+
+    private static string SeverityClass(IncidentSeverity severity) => $"severity-{severity.ToString().ToLowerInvariant()}";
+
+    private static string StatusClass(IncidentReviewStatus status) => $"status-{status.ToString().ToLowerInvariant()}";
+
+    private static string AssignmentValue(IncidentAssignment assignment) =>
+        $"{assignment.SessionId}|{assignment.CandidateId}";
+
+    private static string CandidateOptionId(IncidentAssignment assignment) =>
+        $"incident-candidate-option-{assignment.CandidateId:N}";
+
+    private string? CandidateOptionClass(IncidentAssignment assignment) =>
+        ActiveCandidateOptionId == CandidateOptionId(assignment) ? "is-highlighted" : null;
+
+    private static bool IsSupportedImage(IBrowserFile file)
+    {
+        var extension = Path.GetExtension(file.Name);
+        return file.ContentType switch
+        {
+            "image/png" => extension.Equals(".png", StringComparison.OrdinalIgnoreCase),
+            "image/jpeg" => extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                            extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+    }
+
+    private static string FormatFileSize(long bytes) =>
+        bytes >= 1024 * 1024
+            ? $"{bytes / (1024d * 1024d):0.#} MB"
+            : $"{Math.Max(1, bytes / 1024d):0.#} KB";
+
+    private sealed record SelectedEvidence(IBrowserFile File, string PreviewDataUrl);
+
+    private enum FilterMenu
+    {
+        Severity,
+        Status
+    }
+}

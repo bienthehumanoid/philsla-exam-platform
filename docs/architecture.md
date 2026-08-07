@@ -25,6 +25,9 @@ devices and the proctor machine.
 - seeded, offline manual attendance for assigned sessions: Present/Late check-in,
   absence review, in-session proctor corrections before finalization, durable SQLite
   WAL records, audit history, and durable finalization with read-only records
+- offline incident creation and read-only review for candidates in assigned sessions,
+  with seeded replaceable categories, independent Low/Medium/High/Critical severity,
+  durable SQLite records, and locally stored JPEG/PNG evidence
 
 The current examination package, authorization delay, identity, and questions are
 development fixtures. Mobile QR scanning, signed permits, a LAN attendance
@@ -32,6 +35,11 @@ endpoint, cross-process candidate admission, and cloud attendance synchronizatio
 are not implemented. Rescheduling and post-session administrative correction
 workflows are also not implemented. Encryption, package signing, recording, cloud
 services, and production lockdown functionality are also not implemented.
+
+Incident-category maintenance and incident resolution remain web-application
+responsibilities. Category synchronization, incident upload/idempotency/conflict
+handling, and resolved-status download are not implemented; the workstation uses a
+development-only seeded catalog behind replaceable provider interfaces.
 
 Successful and failed finalization operational-event logging is deferred. The
 current attendance slice persists finalization state durably but does not record a
@@ -44,11 +52,11 @@ Generated Android and iOS platform folders are present but are not project targe
 | Component | Responsibility | Status |
 | --- | --- | --- |
 | `PhilSLA.ExamPlatform.Candidate` | Candidate UI, local exam session, answer capture, recording orchestration, and proctor synchronization | Exam workspace vertical slice |
-| `PhilSLA.ExamPlatform.Proctor` | Proctor-facing desktop UI and seeded offline manual attendance workflow | Workstation attendance vertical slice |
+| `PhilSLA.ExamPlatform.Proctor` | Proctor-facing desktop UI, seeded offline manual attendance, and offline incident creation/viewing | Workstation attendance and incident vertical slices |
 | `PhilSLA.ExamPlatform.Proctor.Server` | Local ASP.NET Core/Kestrel service used by candidates over the examination LAN | Planned |
-| `PhilSLA.ExamPlatform.Core` | Domain rules and application use cases | Initial examination-session and attendance rules implemented |
+| `PhilSLA.ExamPlatform.Core` | Domain rules and application use cases | Initial examination-session, attendance, and incident rules implemented |
 | `PhilSLA.ExamPlatform.Contracts` | Versioned messages and data-transfer contracts shared across processes | Planned |
-| `PhilSLA.ExamPlatform.Infrastructure` | SQLite, cryptography, networking, file storage, and platform adapter implementations | Initial SQLite exam-attempt and attendance stores implemented |
+| `PhilSLA.ExamPlatform.Infrastructure` | SQLite, cryptography, networking, file storage, and platform adapter implementations | Initial SQLite exam-attempt, attendance, and incident/evidence stores implemented |
 | `PhilSLA.ExamPlatform.SharedUi` | Reusable Blazor components and presentation primitives | Planned |
 | Test projects | Unit, integration, contract, recovery, and performance tests | Domain, component, and SQLite recovery coverage started |
 | Cloud API | Online identity, package distribution, and completed-exam ingestion | Deferred to a later design phase |

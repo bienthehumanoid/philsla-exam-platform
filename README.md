@@ -25,6 +25,9 @@ a proctor workstation attendance vertical slice:
   check-in, absence review, in-session proctor corrections before finalization,
   durable SQLite records, audit history, and audited finalization with read-only
   records
+- offline incident creation and read-only review for assigned candidates, with
+  seeded replaceable categories, independent severity, durable SQLite records, and
+  up to five locally stored JPEG/PNG evidence images per incident
 
 The seeded examination and timed proctor authorization are development fixtures.
 Mobile QR scanning, signed permits, a LAN attendance endpoint, cross-process
@@ -33,6 +36,11 @@ post-session administrative correction workflows are outside this workstation sl
 and remain planned work. Signed exam-package delivery, encrypted local storage,
 webcam recording, lockdown integration, and production security controls also
 remain planned.
+
+Incident-category maintenance, incident review/resolution, incident upload,
+conflict handling, and resolved-status synchronization belong to the separate web
+application and are not implemented here. The current category catalog is a
+development fixture behind a replaceable provider interface.
 
 Successful and failed finalization operational-event logging is deferred. The
 current slice persists finalization state durably but does not record a separate
@@ -125,13 +133,13 @@ an application restart.
 └── PhilSLA.ExamPlatform.slnx
 ```
 
-`PhilSLA.ExamPlatform.Core` contains the first examination and attendance rules and
-application services. `PhilSLA.ExamPlatform.Infrastructure` contains SQLite stores
-for examination attempts and workstation attendance records.
-`PhilSLA.ExamPlatform.Proctor` implements the seeded offline manual-attendance
-workstation slice; it is not a local attendance service. The architecture still
-plans separate local-server, contracts, and shared-UI projects. A cloud API will be
-designed later.
+`PhilSLA.ExamPlatform.Core` contains the first examination, attendance, and incident
+rules and application services. `PhilSLA.ExamPlatform.Infrastructure` contains
+SQLite stores for examination attempts, workstation attendance, and incidents plus
+filesystem-backed incident evidence. `PhilSLA.ExamPlatform.Proctor` implements the
+seeded offline manual-attendance and incident-record workstation slices; it is not a
+local synchronization service. The architecture still plans separate local-server,
+contracts, and shared-UI projects. A cloud API will be designed later.
 
 ## Security and repository hygiene
 
