@@ -21,6 +21,8 @@ devices and the proctor machine.
 - SQLite WAL attempt persistence with append-only, integrity-chained answer revisions
 - versioned candidate/proctor wire contracts for device credentials, exam permits,
   encrypted package manifests, synchronization, submission, and receipts
+- application-generated ECDSA P-256 candidate-device identity protected by the
+  operating system secure store
 - Core examination rules separated from Candidate presentation and Infrastructure
   persistence
 - .NET 10 MAUI Blazor Hybrid proctor workstation for Windows and Mac Catalyst
@@ -31,8 +33,9 @@ devices and the proctor machine.
   with seeded replaceable categories, independent Low/Medium/High/Critical severity,
   durable SQLite records, and locally stored JPEG/PNG evidence
 
-The current examination package, authorization delay, identity, and questions are
-development fixtures. Mobile QR scanning, signed permits, a LAN attendance
+The current examination package, authorization delay, candidate identity, and
+questions are development fixtures. Backend device registration, credential
+issuance/revocation, mobile QR scanning, signed permits, a LAN attendance
 endpoint, cross-process candidate admission, and cloud attendance synchronization
 are not implemented. Rescheduling and post-session administrative correction
 workflows are also not implemented. Encryption, package signing, recording, cloud

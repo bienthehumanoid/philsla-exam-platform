@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
 
 using Microsoft.Maui.Networking;
+using Microsoft.Maui.Storage;
 using PhilSLA.ExamPlatform.Candidate.Authentication;
+using PhilSLA.ExamPlatform.Candidate.Devices;
 using PhilSLA.ExamPlatform.Candidate.Examination;
 using PhilSLA.ExamPlatform.Candidate.Persistence;
 using PhilSLA.ExamPlatform.Candidate.Readiness;
@@ -37,6 +39,9 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IAuthenticationService, TemporaryAuthenticationService>();
 		builder.Services.AddSingleton<CandidateSessionState>();
 		builder.Services.AddSingleton<IConnectivity>(Connectivity.Current);
+		builder.Services.AddSingleton<ISecureStorage>(SecureStorage.Default);
+		builder.Services.AddSingleton<IDeviceSecretStore, MauiDeviceSecretStore>();
+		builder.Services.AddSingleton<IDeviceIdentityProvider, DeviceIdentityProvider>();
 		builder.Services.AddSingleton<IExamAssignmentProvider, SeededExamAssignmentProvider>();
 		builder.Services.AddSingleton<IExamDefinitionProvider, SeededExamDefinitionProvider>();
 		builder.Services.AddSingleton<IExamAuthorizationService>(
