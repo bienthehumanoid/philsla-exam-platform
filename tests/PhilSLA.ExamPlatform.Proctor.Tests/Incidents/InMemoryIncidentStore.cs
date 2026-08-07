@@ -17,6 +17,8 @@ internal sealed class InMemoryIncidentStore : IIncidentStore
 
     public int CreateCalls { get; private set; }
 
+    public int ReadEvidenceCalls { get; private set; }
+
     public byte[] EvidenceBytes { get; set; } = [137, 80, 78, 71];
 
     public Task<IReadOnlyList<IncidentRecord>> LoadForSessionsAsync(
@@ -48,6 +50,9 @@ internal sealed class InMemoryIncidentStore : IIncidentStore
     public Task<byte[]> ReadEvidenceAsync(
         Guid incidentId,
         Guid attachmentId,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(EvidenceBytes.ToArray());
+        CancellationToken cancellationToken = default)
+    {
+        ReadEvidenceCalls++;
+        return Task.FromResult(EvidenceBytes.ToArray());
+    }
 }

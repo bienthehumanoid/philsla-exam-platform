@@ -12,11 +12,20 @@ public sealed class SqliteIncidentStore : IIncidentStore
 
     private readonly string _databasePath;
     private readonly string _evidenceRoot;
+    private readonly Func<SqliteConnection, CancellationToken, ValueTask<SqliteTransaction>> _beginTransactionAsync;
     private readonly SemaphoreSlim _initializationLock = new(1, 1);
     private readonly SemaphoreSlim _creationLock = new(1, 1);
     private bool _initialized;
 
     public SqliteIncidentStore(string databasePath, string evidenceRoot)
+        : this(databasePath, evidenceRoot, BeginTransactionAsync)
+    {
+    }
+
+    internal SqliteIncidentStore(
+        string databasePath,
+        string evidenceRoot,
+        Func<SqliteConnection, CancellationToken, ValueTask<SqliteTransaction>> beginTransactionAsync)
     {
         _databasePath = string.IsNullOrWhiteSpace(databasePath)
             ? throw new ArgumentException("A database path is required.", nameof(databasePath))
@@ -24,6 +33,7 @@ public sealed class SqliteIncidentStore : IIncidentStore
         _evidenceRoot = string.IsNullOrWhiteSpace(evidenceRoot)
             ? throw new ArgumentException("An evidence path is required.", nameof(evidenceRoot))
             : evidenceRoot;
+        _beginTransactionAsync = beginTransactionAsync ?? throw new ArgumentNullException(nameof(beginTransactionAsync));
     }
 
     public async Task<IReadOnlyList<IncidentRecord>> LoadForSessionsAsync(
@@ -55,6 +65,7 @@ public sealed class SqliteIncidentStore : IIncidentStore
         await EnsureInitializedAsync(cancellationToken);
         await _creationLock.WaitAsync(cancellationToken);
         string? finalDirectory = null;
+        var committed = false;
         try
         {
             var prepared = await PrepareEvidenceAsync(draft.Id, uploads, cancellationToken);
@@ -62,8 +73,7 @@ public sealed class SqliteIncidentStore : IIncidentStore
 
             await using var connection = CreateConnection();
             await connection.OpenAsync(cancellationToken);
-            await using var transaction = (SqliteTransaction)
-                await connection.BeginTransactionAsync(cancellationToken);
+            await using var transaction = await _beginTransactionAsync(connection, cancellationToken);
             try
             {
                 var sequence = await AllocateSequenceAsync(
@@ -89,6 +99,7 @@ public sealed class SqliteIncidentStore : IIncidentStore
                 }
 
                 await transaction.CommitAsync(cancellationToken);
+                committed = true;
                 return draft with
                 {
                     DisplayId = displayId,
@@ -98,9 +109,17 @@ public sealed class SqliteIncidentStore : IIncidentStore
             catch
             {
                 await transaction.RollbackAsync(CancellationToken.None);
-                DeleteDirectory(finalDirectory);
                 throw;
             }
+        }
+        catch
+        {
+            if (!committed)
+            {
+                DeleteDirectory(finalDirectory);
+            }
+
+            throw;
         }
         finally
         {
@@ -562,6 +581,11 @@ public sealed class SqliteIncidentStore : IIncidentStore
         };
         return new SqliteConnection(builder.ToString());
     }
+
+    private static async ValueTask<SqliteTransaction> BeginTransactionAsync(
+        SqliteConnection connection,
+        CancellationToken cancellationToken) =>
+        (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
 
     private static string Format(DateTimeOffset value) =>
         value.ToString("O", CultureInfo.InvariantCulture);

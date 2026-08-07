@@ -196,7 +196,7 @@
 .incident-description p { margin: 0.5rem 0 0; padding: 1rem; border: 1px solid #e4e8ee; border-radius: 0.7rem; background: #fafbfc; white-space: pre-wrap; }
 .evidence-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.8rem; }
 .evidence-thumbnail { min-height: 8rem; overflow: hidden; padding: 0; border: 1px solid #dce2ea; border-radius: 0.7rem; background: #fff; text-align: left; }
-.evidence-thumbnail img { display: block; width: 100%; height: 7rem; object-fit: cover; background: #f2f4f7; }
+.evidence-thumbnail svg { display: block; width: 100%; height: 7rem; padding: 2.2rem; fill: none; stroke: #8299bb; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; background: #f2f4f7; }
 .evidence-thumbnail span { display: block; overflow: hidden; padding: 0.55rem 0.7rem; color: #34343a; font-size: 0.72rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .evidence-error { color: #a31236; }
 .evidence-preview-backdrop { z-index: 210; }

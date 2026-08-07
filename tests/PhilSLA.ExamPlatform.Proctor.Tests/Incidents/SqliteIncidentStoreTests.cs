@@ -124,6 +124,40 @@ public sealed class SqliteIncidentStoreTests
     }
 
     [TestMethod]
+    public async Task CreateAsync_WhenConnectionOpenFails_RemovesPromotedEvidence()
+    {
+        var store = CreateStore();
+        await store.LoadForSessionsAsync([IncidentTestData.SessionId]);
+        SqliteConnection.ClearAllPools();
+        File.Delete(_databasePath);
+        Directory.CreateDirectory(_databasePath);
+        var draft = CreateDraft();
+
+        await Assert.ThrowsExactlyAsync<SqliteException>(() =>
+            store.CreateAsync(draft, [IncidentTestData.PngUpload()]));
+
+        Assert.IsFalse(Directory.Exists(Path.Combine(_evidenceRoot, draft.Id.ToString("N"))));
+    }
+
+    [TestMethod]
+    public async Task CreateAsync_WhenTransactionStartFails_RemovesPromotedEvidence()
+    {
+        var store = new SqliteIncidentStore(
+            _databasePath,
+            _evidenceRoot,
+            (_, _) => ValueTask.FromException<SqliteTransaction>(
+                new InvalidOperationException("Forced transaction-start failure.")));
+        await store.LoadForSessionsAsync([IncidentTestData.SessionId]);
+        var draft = CreateDraft();
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+            store.CreateAsync(draft, [IncidentTestData.PngUpload()]));
+
+        Assert.IsFalse(Directory.Exists(Path.Combine(_evidenceRoot, draft.Id.ToString("N"))));
+        Assert.IsEmpty(await store.LoadForSessionsAsync([IncidentTestData.SessionId]));
+    }
+
+    [TestMethod]
     public async Task Initialization_RemovesOrphanEvidenceDirectories()
     {
         var orphan = Path.Combine(_evidenceRoot, Guid.NewGuid().ToString("N"));

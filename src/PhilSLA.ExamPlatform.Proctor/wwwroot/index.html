@@ -96,6 +96,38 @@
                 }
             };
         })();
+
+        window.philslaIncidentEvidence = {
+            async createThumbnails(inputId, width, height, quality) {
+                const input = document.getElementById(inputId);
+                if (!(input instanceof HTMLInputElement)) {
+                    throw new Error("Evidence input was not found.");
+                }
+
+                const thumbnails = [];
+                for (const file of input.files) {
+                    const bitmap = await createImageBitmap(file, {
+                        resizeWidth: width,
+                        resizeHeight: height,
+                        resizeQuality: "high"
+                    });
+                    try {
+                        const canvas = document.createElement("canvas");
+                        canvas.width = width;
+                        canvas.height = height;
+                        const context = canvas.getContext("2d", { alpha: false });
+                        context.fillStyle = "#ffffff";
+                        context.fillRect(0, 0, width, height);
+                        context.drawImage(bitmap, 0, 0, width, height);
+                        thumbnails.push(canvas.toDataURL("image/jpeg", quality));
+                    } finally {
+                        bitmap.close();
+                    }
+                }
+
+                return thumbnails;
+            }
+        };
     </script>
     <script src="_framework/blazor.webview.js" autostart="false"></script>
 

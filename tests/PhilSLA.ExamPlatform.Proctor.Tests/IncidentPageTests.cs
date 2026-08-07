@@ -166,7 +166,8 @@ public sealed class IncidentPageTests
             "evidence.png",
             new string('A', 64));
         var record = IncidentTestData.CreateRecord(attachments: [attachment]);
-        using var context = CreateContext(records: [record]);
+        var store = new InMemoryIncidentStore([record]);
+        using var context = CreateContext(store: store);
         var component = context.Render<IncidentsComponent>();
         component.WaitForElement(".view-incident").Click();
 
@@ -176,12 +177,20 @@ public sealed class IncidentPageTests
             StringAssert.Contains(dialog.TextContent, record.Description);
             StringAssert.Contains(dialog.TextContent, record.SessionTitle);
             StringAssert.Contains(dialog.TextContent, record.ReportedByProctorName);
-            Assert.HasCount(1, component.FindAll(".evidence-thumbnail img[src^='data:image/png;base64,']"));
+            Assert.AreEqual(0, store.ReadEvidenceCalls);
             Assert.HasCount(0, component.FindAll(".edit-incident, .delete-incident, .resolve-incident"));
         });
 
         component.Find(".evidence-thumbnail").Click();
-        Assert.HasCount(1, component.FindAll(".evidence-preview-dialog"));
+        component.WaitForAssertion(() =>
+        {
+            Assert.AreEqual(1, store.ReadEvidenceCalls);
+            Assert.HasCount(1, component.FindAll(".evidence-preview-dialog"));
+        });
+
+        component.Find(".evidence-preview-dialog button").Click();
+        component.Find(".evidence-thumbnail").Click();
+        component.WaitForAssertion(() => Assert.AreEqual(2, store.ReadEvidenceCalls));
     }
 
     [TestMethod]
@@ -294,6 +303,14 @@ public sealed class IncidentPageTests
     public void EvidenceSelection_ShowsMultipleFilesAndSupportsRemoval()
     {
         using var context = CreateContext();
+        var thumbnails = new[]
+        {
+            "data:image/jpeg;base64,bounded-thumbnail-one",
+            "data:image/jpeg;base64,bounded-thumbnail-two"
+        };
+        context.JSInterop
+            .Setup<string[]>("philslaIncidentEvidence.createThumbnails", _ => true)
+            .SetResult(thumbnails);
         var component = context.Render<IncidentsComponent>();
         component.WaitForElement(".create-incident").Click();
         var input = component.FindComponent<InputFile>();
@@ -303,6 +320,15 @@ public sealed class IncidentPageTests
             InputFileContent.CreateFromBinary([255, 216, 255, 1], "second.jpg", contentType: "image/jpeg"));
 
         Assert.HasCount(2, component.FindAll(".selected-evidence"));
+        CollectionAssert.AreEqual(
+            thumbnails,
+            component.FindAll(".selected-evidence img")
+                .Select(image => image.GetAttribute("src"))
+                .ToArray());
+        var thumbnailInvocation = context.JSInterop.Invocations.Single(invocation =>
+            invocation.Identifier == "philslaIncidentEvidence.createThumbnails");
+        Assert.AreEqual(256, thumbnailInvocation.Arguments[1]);
+        Assert.AreEqual(256, thumbnailInvocation.Arguments[2]);
         component.Find(".remove-evidence").Click();
         Assert.HasCount(1, component.FindAll(".selected-evidence"));
     }
