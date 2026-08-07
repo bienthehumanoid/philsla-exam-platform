@@ -19,6 +19,8 @@ devices and the proctor machine.
 - seeded four-block, single-choice examination workspace
 - per-block timing, question navigation and flagging, explicit/timeout submission
 - SQLite WAL attempt persistence with append-only, integrity-chained answer revisions
+- versioned candidate/proctor wire contracts for device credentials, exam permits,
+  encrypted package manifests, synchronization, submission, and receipts
 - Core examination rules separated from Candidate presentation and Infrastructure
   persistence
 - .NET 10 MAUI Blazor Hybrid proctor workstation for Windows and Mac Catalyst
@@ -55,7 +57,7 @@ Generated Android and iOS platform folders are present but are not project targe
 | `PhilSLA.ExamPlatform.Proctor` | Proctor-facing desktop UI, seeded offline manual attendance, and offline incident creation/viewing | Workstation attendance and incident vertical slices |
 | `PhilSLA.ExamPlatform.Proctor.Server` | Local ASP.NET Core/Kestrel service used by candidates over the examination LAN | Planned |
 | `PhilSLA.ExamPlatform.Core` | Domain rules and application use cases | Initial examination-session, attendance, and incident rules implemented |
-| `PhilSLA.ExamPlatform.Contracts` | Versioned messages and data-transfer contracts shared across processes | Planned |
+| `PhilSLA.ExamPlatform.Contracts` | Versioned messages and data-transfer contracts shared across processes | Phase 1 contract shapes and strict JSON serialization implemented; integrations pending |
 | `PhilSLA.ExamPlatform.Infrastructure` | SQLite, cryptography, networking, file storage, and platform adapter implementations | Initial SQLite exam-attempt, attendance, and incident/evidence stores implemented |
 | `PhilSLA.ExamPlatform.SharedUi` | Reusable Blazor components and presentation primitives | Planned |
 | Test projects | Unit, integration, contract, recovery, and performance tests | Domain, component, and SQLite recovery coverage started |
