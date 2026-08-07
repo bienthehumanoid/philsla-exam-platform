@@ -1,12 +1,14 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/PhilSLA.ExamPlatform.Candidate/PhilSLA.ExamPlatform.Candidate.csproj" />
+    <Project Path="src/PhilSLA.ExamPlatform.Contracts/PhilSLA.ExamPlatform.Contracts.csproj" />
     <Project Path="src/PhilSLA.ExamPlatform.Core/PhilSLA.ExamPlatform.Core.csproj" />
     <Project Path="src/PhilSLA.ExamPlatform.Infrastructure/PhilSLA.ExamPlatform.Infrastructure.csproj" />
     <Project Path="src/PhilSLA.ExamPlatform.Proctor/PhilSLA.ExamPlatform.Proctor.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PhilSLA.ExamPlatform.Candidate.Tests/PhilSLA.ExamPlatform.Candidate.Tests.csproj" />
+    <Project Path="tests/PhilSLA.ExamPlatform.Contracts.Tests/PhilSLA.ExamPlatform.Contracts.Tests.csproj" />
     <Project Path="tests/PhilSLA.ExamPlatform.Proctor.Tests/PhilSLA.ExamPlatform.Proctor.Tests.csproj" />
   </Folder>
 </Solution>
